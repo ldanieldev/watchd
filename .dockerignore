@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+.nuxt
+.output
+dist
+.env
+.env.*
+*.log
+test-results
+playwright-report
+README.md
+compose.yml
+Dockerfile

@@ -1,0 +1,125 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-watchd}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  inngest:
+    image: inngest/inngest
+    command: "inngest start"
+    ports:
+      - "8288:8288"
+      - "8289:8289"
+    environment:
+      INNGEST_EVENT_KEY: ${INNGEST_EVENT_KEY:-deadbeefdeadbeef}
+      INNGEST_SIGNING_KEY: ${INNGEST_SIGNING_KEY:-cafebabecafebabe}
+      INNGEST_POSTGRES_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-watchd}
+      INNGEST_REDIS_URI: ${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      - postgres
+      - redis
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.2
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.security.enrollment.enabled: "false"
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+      # elasticvue is a browser app talking to ES directly, so CORS is required
+      http.cors.enabled: "true"
+      http.cors.allow-origin: ${ELASTICSEARCH_CORS_ORIGIN:-/.*/}
+      http.cors.allow-headers: X-Requested-With,Content-Type,Content-Length,Authorization
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # Elasticsearch UI: index/document browsing, mappings, REST console.
+  elasticvue:
+    image: cars10/elasticvue:latest
+    ports:
+      - "${ELASTICVUE_PORT:-8080}:8080"
+    environment:
+      # uri is resolved by the BROWSER, not the container, so it uses the host port
+      ELASTICVUE_CLUSTERS: '[{"name":"watchd","uri":"http://localhost:${ELASTICSEARCH_PORT:-9200}"}]'
+    depends_on:
+      - elasticsearch
+
+  # Redis UI only; Postgres is covered by `drizzle-kit studio`.
+  redisinsight:
+    image: redis/redisinsight:latest
+    ports:
+      - "${REDISINSIGHT_PORT:-5540}:5540"
+    environment:
+      # Resolved by the container, not the browser, so this is the service name
+      RI_REDIS_HOST: redis
+      RI_REDIS_PORT: 6379
+      RI_REDIS_ALIAS: watchd
+      RI_ACCEPT_TERMS_AND_CONDITIONS: "true"
+    volumes:
+      - redisinsight_data:/data
+    depends_on:
+      - redis
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.62.1-jammy
+    profiles: ["test"]
+    working_dir: /work
+    env_file:
+      - .env
+    environment:
+      BUN_INSTALL: /root/.bun
+      PATH: /root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      CI: "true"
+    volumes:
+      - .:/work:Z
+      - playwright_bun:/root/.bun
+    depends_on:
+      - postgres
+      - redis
+      - inngest
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        if ! command -v bun >/dev/null 2>&1; then
+          apt-get update -qq && apt-get install -y -qq unzip
+          curl -fsSL https://bun.sh/install | bash
+        fi
+        bun install --frozen-lockfile
+        exec bun "$@"
+      - bash
+    command: ["test:e2e"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  redisinsight_data:
+  playwright_bun:
