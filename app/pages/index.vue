@@ -1,15 +1,9 @@
 <script setup lang="ts">
-function testSentry() {
-  throw new Error('this is just a test')
-}
+
 </script>
 
 <template>
-  <div>
-    <UPageSection>
-      <UButton @click="testSentry">
-        Test Sentry
-      </UButton>
-    </UPageSection>
-  </div>
+  <main class="flex flex-col flex-1 min-w-0 overflow-y-auto p-4">
+    <h1>Home</h1>
+  </main>
 </template>

@@ -5,9 +5,7 @@ import { users } from '~~/server/db/schema'
 const registerSchema = z.object({
   name: z.string().min(1),
   email: z.email(),
-  password: z.string().min(8),
-  age: z.coerce.number().min(13).max(120),
-  sex: z.enum(['m', 'f']).optional()
+  password: z.string().min(8)
 })
 
 export default defineEventHandler(async (event) => {

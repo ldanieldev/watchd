@@ -1,0 +1,8 @@
+{
+  // Nuxt wires none of test/e2e into its generated projects; it extends the shared project rather than the server one because Playwright specs drive the app over HTTP and must not see nitro's auto-imported globals.
+  "extends": "./.nuxt/tsconfig.shared.json",
+  "include": [
+    "test/e2e/**/*",
+    "playwright.config.ts"
+  ]
+}

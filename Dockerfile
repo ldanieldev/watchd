@@ -29,6 +29,7 @@ ENV SENTRY_DSN=${SENTRY_DSN} \
 # Secret mount rather than ARG: an ARG would persist in the image history.
 RUN --mount=type=secret,id=sentry_auth_token \
     SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
+    SENTRY_UPLOAD_SOURCEMAPS=true \
     bun run build
 
 # Production

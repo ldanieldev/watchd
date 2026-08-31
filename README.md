@@ -46,6 +46,8 @@ REDIS_URL=redis://redis:6379                                        # container 
 
 Optional: `APP_NAME`, `PORT`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `ES_JAVA_OPTS`, and the `*_PORT` overrides below. `ELASTICSEARCH_URL` is reserved and not read anywhere yet. Sentry stays off unless `SENTRY_DSN` is set; `SENTRY_AUTH_TOKEN` and `SENTRY_ORG` are build-time only, for sourcemap upload.
 
+Upload is gated behind `SENTRY_UPLOAD_SOURCEMAPS=true`, which only the `Dockerfile` sets. The plugin would otherwise upload maps and cut a release on *every* production build — and `@nuxt/test-utils` does one per E2E run, so a plain `bun run test:e2e` was creating Sentry releases. Leave it unset everywhere except a real release build; runtime error reporting does not depend on it.
+
 ## Scripts
 
 | Script | Does |
@@ -99,7 +101,7 @@ Level is set by `CONSOLA_LOG_LEVEL` (a name like `info`, or a number). It defaul
 
 ## Deployment
 
-`Dockerfile` builds a single image; Nitro bundles everything into `.output`, and the runtime stage carries only that. The Sentry auth token is passed as a build secret rather than an `ARG`, so it does not persist in the image history.
+`Dockerfile` builds a single image; Nitro bundles everything into `.output`, and the runtime stage carries only that. The Sentry auth token is passed as a build secret rather than an `ARG`, so it does not persist in the image history. This is also the only build that sets `SENTRY_UPLOAD_SOURCEMAPS=true`, so it is the only one that uploads sourcemaps and creates a release.
 
 ```bash
 podman build --secret id=sentry_auth_token,src=<file> \

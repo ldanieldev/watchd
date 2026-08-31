@@ -1,0 +1,11 @@
+{
+  // Nuxt only wires test/nuxt into its generated projects, so test/unit needs its own; it extends the server project for the nitro auto-import types the handlers under test rely on.
+  "extends": "./.nuxt/tsconfig.server.json",
+  "include": [
+    ".nuxt/types/nitro-nuxt.d.ts",
+    ".nuxt/types/nitro.d.ts",
+    "server/**/*",
+    "shared/**/*.d.ts",
+    "test/unit/**/*"
+  ]
+}
