@@ -1,1 +1,1 @@
-{"root":["./test/e2e/auth.spec.ts","./test/e2e/helpers.ts","./playwright.config.ts"],"version":"6.0.3"}
+{"root":["./test/e2e/auth.spec.ts","./test/e2e/helpers.ts","./test/e2e/profile.spec.ts","./playwright.config.ts"],"version":"6.0.3"}

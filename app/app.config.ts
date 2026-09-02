@@ -3,6 +3,16 @@ export default defineAppConfig({
     colors: {
       primary: 'orange',
       neutral: 'slate'
+    },
+    button: {
+      defaultVariants: {
+        variant: 'outline'
+      }
+    },
+    pageCard: {
+      defaultVariants: {
+        variant: 'soft'
+      }
     }
   }
 })

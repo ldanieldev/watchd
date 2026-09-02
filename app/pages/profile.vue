@@ -3,7 +3,11 @@
 </script>
 
 <template>
-  <main class="flex flex-col flex-1 min-w-0 overflow-y-auto p-4">
-    <h1>Profile</h1>
+  <main class="flex flex-col w-full lg:max-w-2xl mx-auto py-8 px-8 lg:px-0 gap-8">
+    <ProfilePersonalInfoForm />
+    <USeparator />
+    <ProfilePasswordForm />
+    <USeparator />
+    <ProfileDeleteAccountCard />
   </main>
 </template>
