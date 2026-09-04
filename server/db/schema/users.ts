@@ -1,7 +1,7 @@
-import { boolean, pgTable, unique, varchar } from 'drizzle-orm/pg-core'
-import { commonColumns } from '../shared'
+import { boolean, unique, varchar } from 'drizzle-orm/pg-core'
+import { appSchema, commonColumns } from '../shared'
 
-export const users = pgTable(
+export const users = appSchema.table(
   'users',
   {
     ...commonColumns,

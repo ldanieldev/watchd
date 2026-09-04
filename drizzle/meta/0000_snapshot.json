@@ -1,12 +1,12 @@
 {
-  "id": "bf9400ca-123e-4f21-be0c-41ba06117d1b",
+  "id": "4ca84b2a-67f1-41ab-8b8d-a174d7faf929",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.users": {
+    "app.users": {
       "name": "users",
-      "schema": "",
+      "schema": "app",
       "columns": {
         "id": {
           "name": "id",
@@ -16,7 +16,7 @@
           "identity": {
             "type": "always",
             "name": "users_id_seq",
-            "schema": "public",
+            "schema": "app",
             "increment": "1",
             "startWith": "1",
             "minValue": "1",
@@ -83,7 +83,9 @@
     }
   },
   "enums": {},
-  "schemas": {},
+  "schemas": {
+    "app": "app"
+  },
   "sequences": {},
   "roles": {},
   "policies": {},
