@@ -3,7 +3,11 @@
 </script>
 
 <template>
-  <main class="flex flex-col flex-1 min-w-0 overflow-y-auto p-4">
-    <h1>Settings</h1>
-  </main>
+  <div>
+    <UPageCard>
+      <UPageHeader>
+        <h1>Sidebar</h1>
+      </UPageHeader>
+    </UPageCard>
+  </div>
 </template>

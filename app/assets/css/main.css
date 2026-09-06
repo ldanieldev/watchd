@@ -3,5 +3,8 @@
 
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
+}
 
+@utility page-shell{
+  @apply flex flex-col w-full lg:max-w-2xl mx-auto p-8 lg:px-0 gap-8;
 }
