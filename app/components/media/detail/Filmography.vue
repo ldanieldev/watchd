@@ -22,7 +22,8 @@ function measureGridColumns() {
   if (measuredColumns > 0) gridColumnCount.value = measuredColumns
 }
 
-onMounted(() => {
+// Measure after hydration so the extra cards don't trip @nuxt/hints' SSR-mismatch check.
+onNuxtReady(() => {
   measureGridColumns()
   if (!filmographyGrid.value) return
   gridResizeObserver = new ResizeObserver(measureGridColumns)
