@@ -19,17 +19,10 @@ interface FeaturedTitle {
   tmdbId: number
 }
 
-const featuredTitles: FeaturedTitle[] = [
-  { titleId: 'tulsa-king', kind: 'tv', tmdbId: 153312 },
-  { titleId: 'frieren-beyond-journey-s-end', kind: 'tv', tmdbId: 209867 },
-  { titleId: 'knives-out', kind: 'movie', tmdbId: 546554 },
-  { titleId: 'glass-onion-a-knives-out-mystery', kind: 'movie', tmdbId: 661374 },
-  { titleId: 'wake-up-dead-man-a-knives-out-mystery', kind: 'movie', tmdbId: 812583 },
-  { titleId: 'dune', kind: 'movie', tmdbId: 438631 },
-  { titleId: 'dune-part-two', kind: 'movie', tmdbId: 693134 },
-  { titleId: 'dune-part-three', kind: 'movie', tmdbId: 1170608 },
-  { titleId: 'blade-runner-2049', kind: 'movie', tmdbId: 335984 }
-]
+const featuredTitles: FeaturedTitle[] = catalog.map((entry) => {
+  if (entry.tmdbId === undefined) throw new Error(`catalog entry ${entry.id} has no tmdbId`)
+  return { titleId: entry.id, kind: entry.type === 'movie' ? 'movie' : 'tv', tmdbId: entry.tmdbId }
+})
 
 interface RawNamed {
   name: string
@@ -80,7 +73,10 @@ interface RawTitleBase {
 interface RawTv extends RawTitleBase {
   networks: RawNamed[]
   created_by: RawPerson[]
-  seasons: { season_number: number }[]
+  seasons: { season_number: number, name: string, poster_path: string | null, overview: string }[]
+  number_of_episodes: number
+  episode_run_time: number[]
+  last_episode_to_air: { runtime: number | null } | null
   aggregate_credits: RawCredits
   content_ratings: { results: RawCountryRating[] }
 }
@@ -137,6 +133,7 @@ const outputPath = new URL('../app/utils/library/details.json', import.meta.url)
 const environmentPath = new URL('../.env', import.meta.url)
 const castPerTitle = 5
 const crewPerTitle = 3
+const maxEpisodesWithDetails = 100
 const creditsPerPerson = 40
 const crewJobPriority = ['Creator', 'Director', 'Writer', 'Screenplay']
 const catalogCreditKeys = new Set(
@@ -257,7 +254,9 @@ async function fetchSeasons(tvTmdbId: number, seasonNumbers: number[]) {
 
 async function fetchTvTitle(featured: FeaturedTitle): Promise<TitleDetail> {
   const raw = await tmdbGet<RawTv>(`/tv/${featured.tmdbId}`, { append_to_response: 'aggregate_credits,content_ratings' })
-  const { seasons, episodes } = await fetchSeasons(featured.tmdbId, raw.seasons.map(season => season.season_number))
+  const { seasons, episodes } = raw.number_of_episodes > maxEpisodesWithDetails
+    ? { seasons: raw.seasons.map(season => ({ season: season.season_number, name: season.name, posterPath: optional(season.poster_path), overview: optional(season.overview) })), episodes: [] }
+    : await fetchSeasons(featured.tmdbId, raw.seasons.map(season => season.season_number))
   return {
     titleId: featured.titleId,
     tmdbId: featured.tmdbId,
@@ -271,6 +270,7 @@ async function fetchTvTitle(featured: FeaturedTitle): Promise<TitleDetail> {
     voteAverage: optional(raw.vote_average),
     voteCount: optional(raw.vote_count),
     ...tvCredits(raw.created_by, raw.aggregate_credits),
+    runtimeMinutes: optional(raw.episode_run_time[0] ?? raw.last_episode_to_air?.runtime),
     seasons,
     episodes
   }
@@ -292,6 +292,7 @@ async function fetchMovieTitle(featured: FeaturedTitle): Promise<{ detail: Title
     voteAverage: optional(raw.vote_average),
     voteCount: optional(raw.vote_count),
     ...movieCredits(raw.credits),
+    runtimeMinutes: optional(raw.runtime),
     seasons: [],
     episodes: [],
     collection: collectionRaw

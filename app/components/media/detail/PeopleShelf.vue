@@ -4,10 +4,11 @@ import { personDetailFor } from '~/utils/library/details'
 import { personPath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
 
-defineProps<{
+withDefaults(defineProps<{
   heading: string
   people: CreditPerson[]
-}>()
+  headingTag?: 'h2' | 'h3'
+}>(), { headingTag: 'h2' })
 
 const NuxtLinkComponent = resolveComponent('NuxtLink')
 const failedProfilePersonIds = ref(new Set<number>())
@@ -26,9 +27,13 @@ function hasProfileImage(person: CreditPerson) {
     v-if="people.length"
     class="flex flex-col gap-3"
   >
-    <h2 class="font-display text-xl font-bold text-highlighted">
+    <component
+      :is="headingTag"
+      class="font-display font-bold text-highlighted"
+      :class="headingTag === 'h2' ? 'text-xl' : 'text-base'"
+    >
       {{ heading }}
-    </h2>
+    </component>
     <ul
       class="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain px-1 pb-2 focus-visible:outline-2 focus-visible:outline-primary"
       tabindex="0"

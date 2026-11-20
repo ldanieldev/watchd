@@ -36,6 +36,7 @@ export interface TitleDetail {
   languages: string[]
   voteAverage?: number
   voteCount?: number
+  runtimeMinutes?: number
   cast: CreditPerson[]
   crew: CreditPerson[]
   seasons: SeasonDetail[]
@@ -103,6 +104,7 @@ const titleDetailSchema = z.object({
   languages: z.array(z.string()),
   voteAverage: z.number().optional(),
   voteCount: z.number().optional(),
+  runtimeMinutes: z.number().optional(),
   cast: z.array(creditPersonSchema),
   crew: z.array(creditPersonSchema),
   seasons: z.array(seasonDetailSchema),

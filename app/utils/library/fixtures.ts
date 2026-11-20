@@ -17,6 +17,7 @@ interface EpisodicScenario {
   unwatchedRanges?: { season: number, from: number, to: number }[]
   lastWatchedDaysAgo?: number
   heldStatus?: 'paused' | 'dropped'
+  episodesPerDay?: number
 }
 
 interface MovieScenario {
@@ -27,9 +28,11 @@ interface MovieScenario {
 }
 
 const SEASON_GAP_DAYS = 180
+const EVENING_WEIGHTED_HOURS = [19, 20, 21, 21, 22, 22, 23, 0, 1, 13, 15, 17]
+const BINGE_START_HOUR = 14
 
 const episodic: Record<string, EpisodicScenario> = {
-  'tulsa-king': { seasons: [9, 10, 10], airing: { episodes: 10, nextNumber: 9, nextInDays: 1 }, specials: 1, watched: 37, unwatchedRanges: [{ season: 3, from: 7, to: 10 }], lastWatchedDaysAgo: 4 },
+  'tulsa-king': { seasons: [9, 10, 10], airing: { episodes: 10, nextNumber: 9, nextInDays: 1 }, specials: 1, watched: 37, unwatchedRanges: [{ season: 3, from: 7, to: 10 }], lastWatchedDaysAgo: 4, episodesPerDay: 2 },
   'reacher': { seasons: [8, 8], airing: { episodes: 8, nextNumber: 8, nextInDays: 4 }, watched: 21, lastWatchedDaysAgo: 6 },
   'landman': { seasons: [10], airing: { episodes: 10, nextNumber: 3, nextInDays: 1 }, watched: 12, lastWatchedDaysAgo: 2 },
   'arcane': { seasons: [9, 9], watched: 18, lastWatchedDaysAgo: 40 },
@@ -50,13 +53,13 @@ const episodic: Record<string, EpisodicScenario> = {
   'stranger-things': { seasons: [8, 9, 8, 9], airing: { episodes: 8, nextNumber: 1, nextInDays: 7 }, watched: 34, lastWatchedDaysAgo: 365 },
   'wednesday': { seasons: [8, 8], watched: 16, lastWatchedDaysAgo: 100 },
   'frieren-beyond-journey-s-end': { seasons: [], airing: { episodes: 38, nextNumber: 35, nextInDays: 7 }, specials: 26, watched: 34, lastWatchedDaysAgo: 1 },
-  'saga-of-tanya-the-evil': { seasons: [12], airing: { episodes: 12, nextNumber: 10, nextInDays: 6 }, watched: 20, lastWatchedDaysAgo: 5 },
+  'saga-of-tanya-the-evil': { seasons: [12], airing: { episodes: 12, nextNumber: 10, nextInDays: 6 }, watched: 20, lastWatchedDaysAgo: 5, episodesPerDay: 3 },
   'reincarnated-as-a-sword': { seasons: [12], airing: { episodes: 12, nextNumber: 8, nextInDays: 7 }, watched: 16, lastWatchedDaysAgo: 9 },
-  'black-clover': { seasons: [170], airing: { episodes: 12, nextNumber: 8, nextInDays: 2 }, watched: 177, lastWatchedDaysAgo: 3 },
+  'black-clover': { seasons: [170], airing: { episodes: 12, nextNumber: 8, nextInDays: 2 }, watched: 177, lastWatchedDaysAgo: 3, episodesPerDay: 3 },
   'a-wild-last-boss-appeared': { seasons: [12], watched: 6, lastWatchedDaysAgo: 8 },
   'my-gift-lvl-9999-unlimited-gacha': { seasons: [12], watched: 5, lastWatchedDaysAgo: 8 },
-  'that-time-i-got-reincarnated-as-a-slime': { seasons: [24, 24, 24], watched: 68, lastWatchedDaysAgo: 36 },
-  'one-piece': { seasons: [], airing: { episodes: 1120, nextNumber: 1101, nextInDays: 3 }, watched: 1095, lastWatchedDaysAgo: 30 },
+  'that-time-i-got-reincarnated-as-a-slime': { seasons: [24, 24, 24], watched: 68, lastWatchedDaysAgo: 36, episodesPerDay: 3 },
+  'one-piece': { seasons: [], airing: { episodes: 1120, nextNumber: 1101, nextInDays: 3 }, watched: 1095, lastWatchedDaysAgo: 30, episodesPerDay: 4 },
   'mushoku-tensei-jobless-reincarnation': { seasons: [23, 24], watched: 47, lastWatchedDaysAgo: 60 },
   'from-old-country-bumpkin-to-master-swordsman': { seasons: [12], watched: 12, lastWatchedDaysAgo: 55 },
   'farming-life-in-another-world': { seasons: [12], watched: 12, lastWatchedDaysAgo: 124 },
@@ -98,8 +101,22 @@ const movies: Record<string, MovieScenario> = {
   'dune-part-three': { runtimeMinutes: 150 }
 }
 
-function watchTimestamp(today: Date, daysAgo: number): string {
-  return `${toIsoDate(addDays(today, -daysAgo))}T21:00:00`
+function seedOf(text: string): number {
+  let hash = 0
+  for (const character of text) hash = (hash * 31 + character.charCodeAt(0)) >>> 0
+  return hash
+}
+
+function clockTime(hour: number, minute: number): string {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`
+}
+
+function watchTimestamp(today: Date, daysAgo: number, seed: number): string {
+  return `${toIsoDate(addDays(today, -daysAgo))}T${clockTime(EVENING_WEIGHTED_HOURS[seed % EVENING_WEIGHTED_HOURS.length]!, seed % 60)}`
+}
+
+function bingeTimestamp(today: Date, daysAgo: number, positionInDay: number, seed: number): string {
+  return `${toIsoDate(addDays(today, -daysAgo))}T${clockTime(BINGE_START_HOUR + (seed % 3) + positionInDay, seed % 60)}`
 }
 
 function buildEpisodes(titleId: string, scenario: EpisodicScenario, today: Date): Episode[] {
@@ -147,7 +164,7 @@ export function buildFixtures(today: Date): LibraryData {
       titles.push({ ...entry, firstAired, runtimeMinutes: scenario.runtimeMinutes })
       scenario.watchedDaysAgo?.forEach((daysAgo, index) => watches.push({
         titleId: entry.id,
-        watchedAt: watchTimestamp(today, daysAgo),
+        watchedAt: watchTimestamp(today, daysAgo, seedOf(`${entry.id}-${index}`)),
         minutesWatched: index === 0 ? scenario.minutesWatched : undefined
       }))
       continue
@@ -159,11 +176,17 @@ export function buildFixtures(today: Date): LibraryData {
     episodes.push(...titleEpisodes)
     const watchedSpan = titleEpisodes.filter(episode => !isSpecial(episode)).slice(0, scenario.watched)
     const watchedEpisodes = watchedSpan.filter(episode => !isUnwatchedByScenario(episode, scenario))
-    watchedEpisodes.forEach((episode, index) => watches.push({
-      titleId: entry.id,
-      episodeId: episode.id,
-      watchedAt: watchTimestamp(today, (scenario.lastWatchedDaysAgo ?? 0) + (watchedEpisodes.length - 1 - index))
-    }))
+    const perDay = scenario.episodesPerDay ?? 1
+    watchedEpisodes.forEach((episode, index) => {
+      const fromLatest = watchedEpisodes.length - 1 - index
+      const daysAgo = (scenario.lastWatchedDaysAgo ?? 0) + Math.floor(fromLatest / perDay)
+      const seed = seedOf(`${entry.id}-${daysAgo}`)
+      watches.push({
+        titleId: entry.id,
+        episodeId: episode.id,
+        watchedAt: perDay > 1 ? bingeTimestamp(today, daysAgo, perDay - 1 - (fromLatest % perDay), seed) : watchTimestamp(today, daysAgo, seed)
+      })
+    })
   }
 
   return { titles, episodes, watches }

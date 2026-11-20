@@ -13,7 +13,8 @@ withDefaults(defineProps<{
   heading: string
   items: ShelfItem[]
   showSeeAll?: boolean
-}>(), { showSeeAll: true })
+  headingTag?: 'h2' | 'h3'
+}>(), { showSeeAll: true, headingTag: 'h2' })
 </script>
 
 <template>
@@ -22,9 +23,13 @@ withDefaults(defineProps<{
     class="flex flex-col gap-3"
   >
     <div class="flex items-baseline justify-between">
-      <h2 class="font-display text-xl font-bold text-highlighted">
+      <component
+        :is="headingTag"
+        class="font-display font-bold text-highlighted"
+        :class="headingTag === 'h2' ? 'text-xl' : 'text-base'"
+      >
         {{ heading }}
-      </h2>
+      </component>
       <ULink
         v-if="showSeeAll"
         class="text-sm text-muted hover:text-default"

@@ -58,11 +58,13 @@ const navMenuItems = computed(() => [
     },
     {
       label: 'History',
-      icon: 'i-lucide-clock'
+      icon: 'i-lucide-clock',
+      to: '/history'
     },
     {
       label: 'Statistics',
-      icon: 'i-lucide-bar-chart'
+      icon: 'i-lucide-bar-chart',
+      to: '/stats'
     }
   ]
 ] satisfies NavigationMenuItem[][])

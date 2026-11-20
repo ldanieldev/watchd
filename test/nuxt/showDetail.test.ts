@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { enableAutoUnmount } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import ShowPage from '~/pages/tv/[id]/index.vue'
+import { buildFixtures } from '~/utils/library/fixtures'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
@@ -30,10 +31,16 @@ describe('show detail page', () => {
     expect(seasonRows.at(-1)!.text()).toContain('Specials')
   })
 
-  it('renders a filler title without cast or crew shelves', async () => {
-    const wrapper = await mountSuspended(ShowPage, { route: '/tv/arcane' })
+  it('renders a title without snapshot details and no cast or crew shelves', async () => {
+    const fixtures = buildFixtures(new Date())
+    useState('library', () => ({
+      ...fixtures,
+      titles: [...fixtures.titles, { id: 'no-details-show', type: 'tv', name: 'No Details Show', firstAired: '2020-01-01', posterPath: '/p.jpg' }],
+      episodes: [...fixtures.episodes, { id: 'no-details-show-1-1', titleId: 'no-details-show', season: 1, number: 1, airDate: '2020-01-01' }]
+    }))
+    const wrapper = await mountSuspended(ShowPage, { route: '/tv/no-details-show' })
 
-    expect(wrapper.find('h1').text()).toBe('Arcane')
+    expect(wrapper.find('h1').text()).toBe('No Details Show')
     const headings = wrapper.findAll('h2').map(heading => heading.text())
     expect(headings).not.toContain('About')
     expect(headings).not.toContain('Cast')

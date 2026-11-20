@@ -73,3 +73,19 @@ export interface RecentWatch {
   episode?: Episode
   watchedAt: string
 }
+
+export type TypeFilter = MediaType | 'all'
+
+export interface HistoryEntry {
+  title: Title
+  episode?: Episode
+  watchedAt: string
+  minutes: number
+  progress?: number
+}
+
+export interface HistoryDay {
+  date: string
+  entries: HistoryEntry[]
+  totalMinutes: number
+}

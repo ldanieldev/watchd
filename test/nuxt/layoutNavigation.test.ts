@@ -23,4 +23,9 @@ describe('default layout navigation', () => {
   it('does not highlight Home on a detail page', async () => {
     expect(await activeLabels('/tv/tulsa-king')).not.toContain('Home')
   })
+
+  it('highlights History and Statistics on their pages', async () => {
+    expect(await activeLabels('/history')).toContain('History')
+    expect(await activeLabels('/stats')).toContain('Statistics')
+  })
 })

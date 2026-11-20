@@ -8,6 +8,15 @@ describe('library details snapshot', () => {
     expect(() => detailsSnapshotSchema.parse(detailsJson)).not.toThrow()
   })
 
+  it('has snapshot details for every catalog title', () => {
+    expect(catalog.filter(entry => !titleDetailFor(entry.id)).map(entry => entry.id)).toEqual([])
+  })
+
+  it('gives TV and anime titles a runtime', () => {
+    expect(titleDetailFor('tulsa-king')?.runtimeMinutes).toBeGreaterThan(0)
+    expect(titleDetailFor('one-piece')?.runtimeMinutes).toBeGreaterThan(0)
+  })
+
   it('every snapshot title is a catalog entry with the same tmdbId', () => {
     const snapshot = detailsSnapshotSchema.parse(detailsJson)
     expect(snapshot.titles.length).toBeGreaterThan(0)
@@ -20,7 +29,7 @@ describe('library details snapshot', () => {
 
   it('looks up Tulsa King episode names by season and number', () => {
     expect(episodeDetailFor('tulsa-king', 1, 1)?.name).toBeTruthy()
-    expect(episodeDetailFor('arcane', 1, 1)).toBeUndefined()
+    expect(episodeDetailFor('not-in-snapshot', 1, 1)).toBeUndefined()
   })
 
   it.each([
