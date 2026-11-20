@@ -1,12 +1,13 @@
 <script setup lang="ts">
 const mediaCategories = [
+  { value: 'all', label: 'All' },
   { value: 'movies', label: 'Movies' },
   { value: 'tv', label: 'TV Shows' },
   { value: 'anime', label: 'Anime' }
 ]
 
 const searchQuery = ref('')
-const selectedCategory = ref('movies')
+const selectedCategory = ref('all')
 
 function search() {
   console.log(
