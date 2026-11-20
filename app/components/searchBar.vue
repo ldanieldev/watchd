@@ -24,6 +24,7 @@ function search() {
       type="text"
       name="searchQuery"
       placeholder="Search..."
+      aria-label="Search"
       variant="subtle"
       :ui="{ trailing: 'pe-0' }"
       @keyup.enter="search"
