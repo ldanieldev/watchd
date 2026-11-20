@@ -88,7 +88,7 @@ useHead({ title: pageTitles[props.type].heading })
           :content="false"
           color="neutral"
           size="sm"
-          :ui="{ list: 'w-max', trigger: 'flex-none' }"
+          :ui="{ root: 'items-start', list: 'w-max', trigger: 'flex-none' }"
         />
       </div>
       <USelect
