@@ -1,0 +1,51 @@
+// Receive OTLP metrics from the app and forward them to remote Mimir; traces go to Sentry from the SDK.
+otelcol.receiver.otlp "default" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    metrics = [otelcol.exporter.prometheus.mimir.input]
+  }
+}
+
+otelcol.exporter.prometheus "mimir" {
+  forward_to = [prometheus.remote_write.mimir.receiver]
+}
+
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = sys.env("MIMIR_PUSH_URL") // full push URL, e.g. http://host:49009/api/v1/push
+  }
+}
+
+// Tail pino's JSON log file and ship it to remote Loki.
+local.file_match "applogs" {
+  path_targets = [{ __path__ = "/logs/*.log" }]
+}
+
+loki.source.file "app" {
+  targets    = local.file_match.applogs.targets
+  forward_to = [loki.process.parse.receiver]
+}
+
+loki.process "parse" {
+  forward_to = [loki.write.loki.receiver]
+
+  // Fallback first, so a non-JSON line (crash dump) still gets an identity; stage.labels overrides it from `service`.
+  stage.static_labels {
+    values = { service_name = "watchd-server" }
+  }
+  // pino lines are JSON; lift `level` and `service` into labels (both bounded cardinality).
+  stage.json {
+    expressions = { level = "level", service = "service" }
+  }
+  stage.labels {
+    values = { level = "", service_name = "service" }
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = sys.env("LOKI_PUSH_URL") // full Loki push URL, e.g. http://host:43100/loki/api/v1/push
+  }
+}

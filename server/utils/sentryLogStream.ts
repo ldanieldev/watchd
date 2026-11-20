@@ -1,0 +1,59 @@
+import * as Sentry from '@sentry/nuxt'
+
+const SENTRY_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'] as const
+type SentryLevel = (typeof SENTRY_LEVELS)[number]
+
+// pino writes numeric levels unless a formatter maps them to names, so accept both rather than couple to logger.ts.
+const LEVEL_BY_NUMBER: Record<number, SentryLevel> = {
+  10: 'trace',
+  20: 'debug',
+  30: 'info',
+  40: 'warn',
+  50: 'error',
+  60: 'fatal'
+}
+
+export function toSentryLevel(level: unknown): SentryLevel {
+  if (typeof level === 'number') return LEVEL_BY_NUMBER[level] ?? 'info'
+  if (typeof level === 'string' && (SENTRY_LEVELS as readonly string[]).includes(level)) return level as SentryLevel
+  return 'info'
+}
+
+/**
+ * Splits one pino JSON line into a Sentry log, plus a Sentry issue when it carries an error.
+ * `time`/`level`/`msg` are dropped from the attributes because Sentry models them itself.
+ * A line flagged `sentryCaptured: true` describes an error Sentry already captured, so it becomes a log, not an issue.
+ */
+export function forwardLine(line: string) {
+  let record: Record<string, unknown>
+  try {
+    record = JSON.parse(line)
+  } catch {
+    return
+  }
+
+  const { level, msg, time, err, sentryCaptured, ...attributes } = record
+  const sentryLevel = toSentryLevel(level)
+
+  Sentry.logger[sentryLevel](typeof msg === 'string' ? msg : '[non-string]', attributes)
+
+  // A caught-and-logged error never reaches Sentry's automatic capture, so it would otherwise exist only as a log line.
+  if (err && sentryCaptured !== true && (sentryLevel === 'error' || sentryLevel === 'fatal')) {
+    Sentry.captureException(toError(err, msg), { level: sentryLevel, extra: attributes })
+  }
+}
+
+function toError(err: unknown, msg: unknown): Error {
+  if (err instanceof Error) return err
+  // pino's std error serializer flattens Error to a plain object before this stream sees it.
+  const { type, message, stack } = (err ?? {}) as Record<string, unknown>
+  const reconstructed = new Error(
+    typeof message === 'string' ? message : typeof msg === 'string' ? msg : 'unknown error'
+  )
+  if (typeof type === 'string') reconstructed.name = type
+  if (typeof stack === 'string') reconstructed.stack = stack
+  return reconstructed
+}
+
+/** A pino destination: one JSON line in, one Sentry log out. */
+export const sentryLogStream = { write: forwardLine }

@@ -1,42 +1,45 @@
 # syntax=docker/dockerfile:1.7
-
-# Base
-FROM docker.io/oven/bun:1 AS base
+FROM docker.io/oven/bun:1.4.4 AS base
 WORKDIR /usr/src/app
 
-# Install dependencies (cached layer)
 FROM base AS install
-
 RUN mkdir -p /temp/dev
-COPY package.json bun.lock /temp/dev/
+COPY package.json bun.lock bunfig.toml /temp/dev/
 RUN cd /temp/dev && bun install --frozen-lockfile
 
-# Build
 FROM base AS build
 COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
 
 ARG NODE_ENV=production
 ENV NODE_ENV=${NODE_ENV}
+ARG GIT_SHA=
+# .git is not in the build context, so this is the only thing that can name the Sentry release
+ENV SENTRY_RELEASE=$GIT_SHA
+# The client DSN is public and baked into the client bundle at build time, so it has to be present here.
+ARG SENTRY_DSN=
+ARG SENTRY_UPLOAD_SOURCEMAPS=false
+ARG SENTRY_ORG=
+ARG SENTRY_PROJECT=watchd
+ENV SENTRY_DSN=$SENTRY_DSN SENTRY_UPLOAD_SOURCEMAPS=$SENTRY_UPLOAD_SOURCEMAPS SENTRY_ORG=$SENTRY_ORG SENTRY_PROJECT=$SENTRY_PROJECT
 
-# The client DSN is public and gets baked into the prerendered payload at build time,
-# so it has to be present here rather than only at runtime.
-ARG SENTRY_DSN
-ARG SENTRY_ORG
-ENV SENTRY_DSN=${SENTRY_DSN} \
-    SENTRY_ORG=${SENTRY_ORG}
-
-# Secret mount rather than ARG: an ARG would persist in the image history.
+# The secret mount keeps the token out of layers; an upload build without it fails instead of caching a no-upload layer
 RUN --mount=type=secret,id=sentry_auth_token \
-    SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
-    SENTRY_UPLOAD_SOURCEMAPS=true \
-    bun run build
+    export SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null)" \
+    && if [ "$SENTRY_UPLOAD_SOURCEMAPS" = true ] && [ -z "$SENTRY_AUTH_TOKEN" ]; then \
+      echo 'SENTRY_UPLOAD_SOURCEMAPS=true needs the sentry_auth_token build secret' >&2; exit 1; \
+    fi \
+    && bun run build
+RUN bun build scripts/migrate.ts --target=bun --outfile .output/migrate.mjs
+RUN bun build scripts/inngest-sync.ts --target=bun --outfile .output/inngest-sync.mjs
 
-# Production
 FROM base AS release
+ARG GIT_SHA=
+ENV GIT_SHA=$GIT_SHA SENTRY_RELEASE=$GIT_SHA
 
-# Nitro bundles everything - only need .output
+# Nitro bundles everything into .output; drizzle/ is only there for .output/migrate.mjs
 COPY --from=build /usr/src/app/.output .output
+COPY --from=build /usr/src/app/drizzle drizzle
 
 USER bun
 EXPOSE 3000/tcp

@@ -1,20 +1,22 @@
 import * as Sentry from '@sentry/nuxt'
+import { isExpectedFailure } from './server/utils/expectedFailure'
+import { redactEventQueryParams } from './server/utils/redactQueryParams'
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
-  // Explicit because v11 drops the `sendDefaultPii` bridge an absent key relies on.
+  // Every category is listed because v11 collects any category left out of dataCollection.
   dataCollection: {
     userInfo: false,
     cookies: false,
     httpHeaders: { request: false, response: false },
     httpBodies: [],
     urlQueryParams: false,
-    databaseQueryData: false
+    databaseQueryData: false,
+    stackFrameVariables: false,
+    genAI: { inputs: false, outputs: false },
+    queues: false,
+    graphQL: { document: false, variables: false }
   },
-  // Set tracesSampleRate to 1.0 to capture 100%
-  // of transactions for tracing.
-  // We recommend adjusting this value in production
-  // Learn more at
-  // https://docs.sentry.io/platforms/javascript/configuration/options/#traces-sample-rate
+  beforeSend: (event, hint) => (isExpectedFailure(hint.originalException) ? null : redactEventQueryParams(event)),
   tracesSampleRate: 1.0
 })

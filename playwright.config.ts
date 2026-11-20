@@ -2,6 +2,9 @@ import type { ConfigOptions } from '@nuxt/test-utils/playwright'
 import { defineConfig, devices } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 
+// Marks the e2e build so server/plugins/inngestGuard.ts accepts the dev Inngest keys; the test-utils Nitro server inherits it.
+process.env.NUXT_E2E ??= '1'
+
 export default defineConfig<ConfigOptions>({
   testDir: './test/e2e',
   // Without this Playwright resolves imports against the root tsconfig.json, which declares no paths, so ~~ would typecheck but fail at runtime.
