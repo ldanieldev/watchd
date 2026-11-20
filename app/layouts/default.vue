@@ -19,22 +19,26 @@ const navMenuItems = [
       to: '/'
     },
     {
-      label: 'Discover',
-      icon: 'i-lucide-search'
-    },
-    {
       label: 'Movies',
-      icon: 'i-lucide-film'
+      icon: 'i-lucide-film',
+      to: '/movies'
     },
     {
       label: 'TV Shows',
-      icon: 'i-lucide-tv'
+      icon: 'i-lucide-tv',
+      to: '/tv'
+    },
+    {
+      label: 'Anime',
+      icon: 'i-lucide-sparkles',
+      to: '/anime'
     }
   ],
   [
     {
       label: 'Calendar',
-      icon: 'i-lucide-calendar'
+      icon: 'i-lucide-calendar',
+      to: '/calendar'
     },
     {
       label: 'History',

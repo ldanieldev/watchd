@@ -1,7 +1,8 @@
 <script setup lang="ts">
 const mediaCategories = [
   { value: 'movies', label: 'Movies' },
-  { value: 'tv', label: 'TV Shows' }
+  { value: 'tv', label: 'TV Shows' },
+  { value: 'anime', label: 'Anime' }
 ]
 
 const searchQuery = ref('')

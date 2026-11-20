@@ -3,6 +3,7 @@
 
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
+  --font-display: 'Bricolage Grotesque', sans-serif;
 }
 
 @utility page-shell{
