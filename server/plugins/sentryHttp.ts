@@ -43,6 +43,8 @@ export default defineNitroPlugin((nitroApp) => {
           // Nitro stamps the response status from a thrown error only after this returns, so read it off the error.
           status = (error as { statusCode?: number }).statusCode ?? 500
           expected = isExpectedFailure(error)
+          // Sentry's Nitro error hook captures outside this scope, losing the trace and requestId; capturing here marks it so the hook skips it.
+          if (status >= 500 && !expected) Sentry.captureException(error, { mechanism: { handled: false, type: 'auto.http.watchd' } })
           throw error
         } finally {
           const durationMs = performance.now() - start
