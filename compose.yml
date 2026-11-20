@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-watchd}
       INNGEST_SCHEMA: ${INNGEST_SCHEMA:-inngest}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       # initdb.d runs only on an empty volume, so a populated one needs a teardown to pick this up
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro,Z
     healthcheck:
