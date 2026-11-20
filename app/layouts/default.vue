@@ -13,6 +13,13 @@ const isSidebarOpen = useCookie<boolean>('sidebar-open', { default: () => true }
 
 const route = useRoute()
 
+watch(() => route.fullPath, () => {
+  // Below USidebar's default lg breakpoint the model drives the mobile sheet; above it, it's the desktop collapse state, so leave that alone.
+  if (!window.matchMedia('(min-width: 64rem)').matches) {
+    isSidebarOpen.value = false
+  }
+})
+
 function isWithinSection(sectionPath: string): boolean {
   return route.path === sectionPath || route.path.startsWith(`${sectionPath}/`)
 }
