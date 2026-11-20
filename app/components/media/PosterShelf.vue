@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Title } from '~/utils/library/types'
+import { titlePath } from '~/utils/library/paths'
 
 export interface ShelfItem {
   key: string
@@ -8,10 +9,11 @@ export interface ShelfItem {
   progress?: number
 }
 
-defineProps<{
+withDefaults(defineProps<{
   heading: string
   items: ShelfItem[]
-}>()
+  showSeeAll?: boolean
+}>(), { showSeeAll: true })
 </script>
 
 <template>
@@ -24,6 +26,7 @@ defineProps<{
         {{ heading }}
       </h2>
       <ULink
+        v-if="showSeeAll"
         class="text-sm text-muted hover:text-default"
         aria-disabled="true"
       >
@@ -40,18 +43,23 @@ defineProps<{
         :key="item.key"
         class="w-32 shrink-0 snap-start sm:w-36 lg:w-40"
       >
-        <MediaPosterImage
-          :title="item.title"
-          :progress="item.progress"
-          sizes="10rem"
-        />
-        <p class="mt-2 line-clamp-1 text-sm font-medium text-highlighted">
-          {{ item.title.name }}
-        </p>
-        <p class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
-          <MediaTypeTag :type="item.title.type" />
-          <span class="truncate">{{ item.caption }}</span>
-        </p>
+        <NuxtLink
+          :to="titlePath(item.title)"
+          class="group block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <MediaPosterImage
+            :title="item.title"
+            :progress="item.progress"
+            sizes="10rem"
+          />
+          <p class="mt-2 line-clamp-1 text-sm font-medium text-highlighted group-hover:text-primary">
+            {{ item.title.name }}
+          </p>
+          <p class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+            <MediaTypeTag :type="item.title.type" />
+            <span class="truncate">{{ item.caption }}</span>
+          </p>
+        </NuxtLink>
       </li>
     </ul>
   </section>

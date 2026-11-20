@@ -9,6 +9,10 @@ function byEpisodeOrder(first: Episode, second: Episode): number {
   return first.season - second.season || first.number - second.number
 }
 
+export function isSpecial(episode: Episode): boolean {
+  return episode.season === 0
+}
+
 function summarizeMovie(title: Title, watches: WatchEvent[]): TitleSummary {
   const lastWatchedAt = latestWatchedAt(watches)
   const latest = watches.find(watch => watch.watchedAt === lastWatchedAt)
@@ -33,10 +37,11 @@ function summarizeMovie(title: Title, watches: WatchEvent[]): TitleSummary {
 
 function summarizeEpisodic(title: Title, episodes: Episode[], watches: WatchEvent[], todayIso: string): TitleSummary {
   const watchedIds = new Set(watches.map(watch => watch.episodeId))
-  const ordered = [...episodes].sort(byEpisodeOrder)
+  const ordered = episodes.filter(episode => !isSpecial(episode)).sort(byEpisodeOrder)
   const aired = ordered.filter(episode => episode.airDate <= todayIso)
   const watchedCount = ordered.filter(episode => watchedIds.has(episode.id)).length
   const unwatchedAired = aired.filter(episode => !watchedIds.has(episode.id))
+  const regularEpisodeIds = new Set(ordered.map(episode => episode.id))
   const derivedStatus: TitleStatus = watchedCount === 0
     ? 'planned'
     : watchedCount === ordered.length ? 'completed' : 'watching'
@@ -50,7 +55,7 @@ function summarizeEpisodic(title: Title, episodes: Episode[], watches: WatchEven
     newCount: unwatchedAired.length,
     progress: ordered.length === 0 ? 0 : watchedCount / ordered.length,
     timesWatched: derivedStatus === 'completed' ? 1 : 0,
-    lastWatchedAt: latestWatchedAt(watches),
+    lastWatchedAt: latestWatchedAt(watches.filter(watch => regularEpisodeIds.has(watch.episodeId))),
     nextEpisode: unwatchedAired[0]
   }
 }
@@ -79,7 +84,7 @@ export function releasesBetween(data: LibraryData, from: string, to: string): Re
   const inRange = (date: string) => date >= from && date <= to
 
   const episodeReleases = data.episodes
-    .filter(episode => inRange(episode.airDate) && titlesById.has(episode.titleId))
+    .filter(episode => !isSpecial(episode) && inRange(episode.airDate) && titlesById.has(episode.titleId))
     .map(episode => ({ title: titlesById.get(episode.titleId)!, episode, date: episode.airDate, watched: watchedEpisodeIds.has(episode.id) }))
   const movieReleases = data.titles
     .filter(title => title.type === 'movie' && inRange(title.firstAired))

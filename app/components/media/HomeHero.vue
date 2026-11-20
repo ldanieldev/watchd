@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TitleSummary, WeekDay } from '~/utils/library/types'
 import { episodeCode } from '~/utils/library/derive'
+import { titlePath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
 
 const props = defineProps<{
@@ -59,6 +60,7 @@ const behindLabel = computed(() => {
           />
           <UButton
             label="Details"
+            :to="titlePath(upNext.title)"
             color="neutral"
             variant="ghost"
             size="lg"

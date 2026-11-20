@@ -1,0 +1,181 @@
+<script setup lang="ts">
+import type { Title } from '~/utils/library/types'
+import { seasonEpisodeRows, seasonName, seasonSummaries } from '~/utils/library/detail'
+import { episodeDetailFor, titleDetailFor } from '~/utils/library/details'
+import { episodeCode } from '~/utils/library/derive'
+import { toIsoDate } from '~/utils/library/dates'
+import { seasonPath, titlePath } from '~/utils/library/paths'
+
+const props = defineProps<{ title: Title, season: number }>()
+
+const { data, today, markWatched, markThrough, markSeason, unmarkEpisode, restoreWatches } = useLibrary()
+const { showUndoToast, announceMarked } = useUndoToast()
+const todayIso = toIsoDate(today)
+
+const detail = computed(() => titleDetailFor(props.title.id))
+const rows = computed(() => seasonEpisodeRows(data.value, props.title.id, props.season, todayIso))
+const summaries = computed(() => seasonSummaries(data.value, props.title.id, todayIso))
+const summary = computed(() => summaries.value.find(candidate => candidate.season === props.season))
+
+const episodeBatchSize = 50
+const renderedEpisodeCount = ref(episodeBatchSize)
+const renderedRows = computed(() => rows.value.slice(0, renderedEpisodeCount.value))
+const remainingEpisodeCount = computed(() => rows.value.length - renderedRows.value.length)
+watch(() => props.season, () => {
+  renderedEpisodeCount.value = episodeBatchSize
+})
+
+function renderMoreEpisodes() {
+  renderedEpisodeCount.value += episodeBatchSize
+}
+
+const loadMoreButton = useTemplateRef<{ $el: HTMLElement }>('loadMoreButton')
+let loadMoreObserver: IntersectionObserver | undefined
+
+// IntersectionObserver only fires on crossings, so the button is re-keyed per batch: each new instance gets an initial callback and loading continues while it stays near the viewport.
+watch(loadMoreButton, (button) => {
+  loadMoreObserver?.disconnect()
+  if (!button) return
+  loadMoreObserver = new IntersectionObserver((entries) => {
+    if (entries.some(entry => entry.isIntersecting)) renderMoreEpisodes()
+  }, { rootMargin: '0px 0px 1200px 0px' })
+  loadMoreObserver.observe(button.$el)
+}, { flush: 'post' })
+onBeforeUnmount(() => loadMoreObserver?.disconnect())
+
+const seasonNumbers = computed(() => summaries.value.map(candidate => candidate.season))
+const seasonIndex = computed(() => seasonNumbers.value.indexOf(props.season))
+const previousSeason = computed(() => seasonNumbers.value[seasonIndex.value - 1])
+const nextSeason = computed(() => seasonNumbers.value[seasonIndex.value + 1])
+
+const progressLabel = computed(() => {
+  if (!summary.value) return ''
+  const { watchedCount, airedCount, upcomingCount } = summary.value
+  const upcomingPart = upcomingCount > 0 ? ` · ${upcomingCount} upcoming` : ''
+  return `${watchedCount} of ${airedCount} aired watched${upcomingPart}`
+})
+
+function episodeDetailOf(season: number, number: number) {
+  return episodeDetailFor(props.title.id, season, number)
+}
+
+function onMarkSeason() {
+  announceMarked(`Marked ${seasonName(props.season, detail.value?.seasons)} watched`, markSeason(props.title.id, props.season))
+}
+
+function onMarkThrough(episodeId: string, code: string) {
+  announceMarked(`Marked watched through ${code}`, markThrough(props.title.id, episodeId))
+}
+
+function onUnmark(episodeId: string, code: string) {
+  const removed = unmarkEpisode(episodeId)
+  if (removed.length > 0) showUndoToast(`Unmarked ${code}`, () => restoreWatches(removed))
+}
+</script>
+
+<template>
+  <main class="flex min-w-0 flex-1 flex-col gap-10 overflow-y-auto p-4 sm:p-6 lg:p-8">
+    <section
+      class="flex flex-col gap-4"
+      aria-labelledby="season-title"
+    >
+      <NuxtLink
+        :to="titlePath(title)"
+        class="flex w-fit items-center gap-1.5 rounded-sm text-sm font-medium text-muted hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <UIcon
+          name="i-lucide-arrow-left"
+          class="size-4"
+        />
+        {{ title.name }}
+      </NuxtLink>
+      <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div class="flex min-w-0 flex-col gap-2">
+          <h1
+            id="season-title"
+            class="font-display text-4xl font-extrabold leading-none tracking-tight text-highlighted text-balance sm:text-5xl"
+          >
+            {{ seasonName(season, detail?.seasons) }}
+          </h1>
+          <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-toned">
+            <MediaTypeTag :type="title.type" />
+            <span class="font-medium text-highlighted tabular-nums">{{ progressLabel }}</span>
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <UButton
+            v-if="previousSeason !== undefined"
+            :to="seasonPath(title, previousSeason)"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-chevron-left"
+          >
+            {{ seasonName(previousSeason, detail?.seasons) }}
+          </UButton>
+          <UButton
+            v-if="nextSeason !== undefined"
+            :to="seasonPath(title, nextSeason)"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            trailing-icon="i-lucide-chevron-right"
+          >
+            {{ seasonName(nextSeason, detail?.seasons) }}
+          </UButton>
+          <UButton
+            v-if="summary && summary.missingCount > 0"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-check-check"
+            class="rounded-full"
+            @click="onMarkSeason"
+          >
+            Mark season watched
+          </UButton>
+        </div>
+      </div>
+    </section>
+
+    <ul
+      aria-label="Episodes"
+      class="flex flex-col divide-y divide-default border-y border-default"
+    >
+      <MediaDetailEpisodeRow
+        v-for="row in renderedRows"
+        :key="row.episode.id"
+        :title="title"
+        :row="row"
+        :detail="episodeDetailOf(row.episode.season, row.episode.number)"
+        :today="today"
+        @mark="markWatched(title.id, row.episode.id)"
+        @mark-through="onMarkThrough(row.episode.id, episodeCode(title, row.episode))"
+        @unmark="onUnmark(row.episode.id, episodeCode(title, row.episode))"
+      />
+    </ul>
+    <UButton
+      v-if="remainingEpisodeCount > 0"
+      ref="loadMoreButton"
+      :key="renderedEpisodeCount"
+      color="neutral"
+      variant="outline"
+      size="sm"
+      class="-mt-6 self-center rounded-full"
+      @click="renderMoreEpisodes"
+    >
+      Show more episodes ({{ remainingEpisodeCount }} left)
+    </UButton>
+
+    <MediaDetailPeopleShelf
+      v-if="detail"
+      heading="Cast"
+      :people="detail.cast"
+    />
+    <MediaDetailPeopleShelf
+      v-if="detail"
+      heading="Crew"
+      :people="detail.crew"
+    />
+  </main>
+</template>

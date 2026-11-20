@@ -1,5 +1,6 @@
 import type { Episode, LibraryData, Title, WatchEvent } from './types'
 import { catalog } from './catalog'
+import { isSpecial } from './derive'
 import { addDays, toIsoDate } from './dates'
 
 interface AiringSeason {
@@ -11,7 +12,9 @@ interface AiringSeason {
 interface EpisodicScenario {
   seasons: number[]
   airing?: AiringSeason
+  specials?: number
   watched: number
+  unwatchedRanges?: { season: number, from: number, to: number }[]
   lastWatchedDaysAgo?: number
   heldStatus?: 'paused' | 'dropped'
 }
@@ -26,7 +29,7 @@ interface MovieScenario {
 const SEASON_GAP_DAYS = 180
 
 const episodic: Record<string, EpisodicScenario> = {
-  'tulsa-king': { seasons: [9, 10], airing: { episodes: 10, nextNumber: 9, nextInDays: 1 }, watched: 26, lastWatchedDaysAgo: 4 },
+  'tulsa-king': { seasons: [9, 10, 10], airing: { episodes: 10, nextNumber: 9, nextInDays: 1 }, specials: 1, watched: 37, unwatchedRanges: [{ season: 3, from: 7, to: 10 }], lastWatchedDaysAgo: 4 },
   'reacher': { seasons: [8, 8], airing: { episodes: 8, nextNumber: 8, nextInDays: 4 }, watched: 21, lastWatchedDaysAgo: 6 },
   'landman': { seasons: [10], airing: { episodes: 10, nextNumber: 3, nextInDays: 1 }, watched: 12, lastWatchedDaysAgo: 2 },
   'arcane': { seasons: [9, 9], watched: 18, lastWatchedDaysAgo: 40 },
@@ -46,7 +49,7 @@ const episodic: Record<string, EpisodicScenario> = {
   'ted-lasso': { seasons: [10, 12, 12], watched: 0 },
   'stranger-things': { seasons: [8, 9, 8, 9], airing: { episodes: 8, nextNumber: 1, nextInDays: 7 }, watched: 34, lastWatchedDaysAgo: 365 },
   'wednesday': { seasons: [8, 8], watched: 16, lastWatchedDaysAgo: 100 },
-  'frieren-beyond-journey-s-end': { seasons: [28], airing: { episodes: 12, nextNumber: 8, nextInDays: 7 }, watched: 34, lastWatchedDaysAgo: 1 },
+  'frieren-beyond-journey-s-end': { seasons: [], airing: { episodes: 38, nextNumber: 35, nextInDays: 7 }, specials: 26, watched: 34, lastWatchedDaysAgo: 1 },
   'saga-of-tanya-the-evil': { seasons: [12], airing: { episodes: 12, nextNumber: 10, nextInDays: 6 }, watched: 20, lastWatchedDaysAgo: 5 },
   'reincarnated-as-a-sword': { seasons: [12], airing: { episodes: 12, nextNumber: 8, nextInDays: 7 }, watched: 16, lastWatchedDaysAgo: 9 },
   'black-clover': { seasons: [170], airing: { episodes: 12, nextNumber: 8, nextInDays: 2 }, watched: 177, lastWatchedDaysAgo: 3 },
@@ -78,6 +81,7 @@ const movies: Record<string, MovieScenario> = {
   'the-wrecking-crew': { runtimeMinutes: 124, watchedDaysAgo: [136] },
   'glass-onion-a-knives-out-mystery': { runtimeMinutes: 139, watchedDaysAgo: [137, 700] },
   'wake-up-dead-man-a-knives-out-mystery': { runtimeMinutes: 144, watchedDaysAgo: [138] },
+  'blade-runner': { runtimeMinutes: 118 },
   'blade-runner-2049': { runtimeMinutes: 164, watchedDaysAgo: [139, 900] },
   'ex-machina': { runtimeMinutes: 108, watchedDaysAgo: [139] },
   'dune-part-two': { runtimeMinutes: 166, watchedDaysAgo: [250] },
@@ -88,7 +92,10 @@ const movies: Record<string, MovieScenario> = {
   'interstellar': { runtimeMinutes: 169, watchedDaysAgo: [800, 1200] },
   'everything-everywhere-all-at-once': { runtimeMinutes: 139 },
   'sinners': { runtimeMinutes: 137, watchedDaysAgo: [12] },
-  'the-batman': { runtimeMinutes: 176, watchedDaysAgo: [3], minutesWatched: 60 }
+  'the-batman': { runtimeMinutes: 176, watchedDaysAgo: [3], minutesWatched: 60 },
+  'knives-out': { runtimeMinutes: 131 },
+  'dune': { runtimeMinutes: 155 },
+  'dune-part-three': { runtimeMinutes: 150 }
 }
 
 function watchTimestamp(today: Date, daysAgo: number): string {
@@ -117,7 +124,15 @@ function buildEpisodes(titleId: string, scenario: EpisodicScenario, today: Date)
     }
     cursor = addDays(cursor, -SEASON_GAP_DAYS)
   }
+  for (let number = (scenario.specials ?? 0); number >= 1; number--) {
+    episodes.unshift({ id: `${titleId}-0-${number}`, titleId, season: 0, number, airDate: toIsoDate(cursor) })
+    cursor = addDays(cursor, -7)
+  }
   return episodes
+}
+
+function isUnwatchedByScenario(episode: Episode, scenario: EpisodicScenario): boolean {
+  return (scenario.unwatchedRanges ?? []).some(range => range.season === episode.season && episode.number >= range.from && episode.number <= range.to)
 }
 
 export function buildFixtures(today: Date): LibraryData {
@@ -142,7 +157,9 @@ export function buildFixtures(today: Date): LibraryData {
     titles.push({ ...entry, heldStatus: scenario.heldStatus })
     const titleEpisodes = buildEpisodes(entry.id, scenario, today)
     episodes.push(...titleEpisodes)
-    titleEpisodes.slice(0, scenario.watched).forEach((episode, index, watchedEpisodes) => watches.push({
+    const watchedSpan = titleEpisodes.filter(episode => !isSpecial(episode)).slice(0, scenario.watched)
+    const watchedEpisodes = watchedSpan.filter(episode => !isUnwatchedByScenario(episode, scenario))
+    watchedEpisodes.forEach((episode, index) => watches.push({
       titleId: entry.id,
       episodeId: episode.id,
       watchedAt: watchTimestamp(today, (scenario.lastWatchedDaysAgo ?? 0) + (watchedEpisodes.length - 1 - index))

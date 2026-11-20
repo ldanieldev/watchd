@@ -6,6 +6,7 @@ export interface Title {
   id: string
   type: MediaType
   name: string
+  tmdbId?: number
   firstAired: string
   posterPath: string
   backdropPath?: string

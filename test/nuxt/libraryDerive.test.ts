@@ -9,6 +9,7 @@ import {
   monthGrid,
   pickUpNext,
   recentlyWatched,
+  releasesBetween,
   summarize,
   weekOf
 } from '~/utils/library/derive'
@@ -66,6 +67,33 @@ describe('summarize', () => {
   it('marks a partially watched movie as watching with minutes left', () => {
     const data: LibraryData = { titles: [show('m', { type: 'movie', runtimeMinutes: 120 })], episodes: [], watches: [{ titleId: 'm', watchedAt: '2026-11-01T20:00:00', minutesWatched: 30 }] }
     expect(summarize(data, now)[0]).toMatchObject({ status: 'watching', minutesLeft: 90 })
+  })
+})
+
+describe('specials', () => {
+  it('summarize ignores specials', () => {
+    const data: LibraryData = {
+      titles: [show('a')],
+      episodes: [...episodes('a', 3, 3), ...episodes('a', 2, 2, 0)],
+      watches: watched('a', 3)
+    }
+    const summary = summarize(data, now)[0]!
+    expect(summary).toMatchObject({ status: 'completed', newCount: 0, totalCount: 3 })
+    expect(summary.nextEpisode).toBeUndefined()
+  })
+
+  it('lastWatchedAt ignores watches of specials', () => {
+    const data: LibraryData = {
+      titles: [show('a')],
+      episodes: [...episodes('a', 3, 3), ...episodes('a', 2, 2, 0)],
+      watches: [...watched('a', 1, 5), ...watched('a', 1, 15, 0)]
+    }
+    expect(summarize(data, now)[0]!.lastWatchedAt).toBe('2026-11-05T20:00:00')
+  })
+
+  it('releasesBetween leaves out specials', () => {
+    const data: LibraryData = { titles: [show('a')], episodes: episodes('a', 2, 2, 0), watches: [] }
+    expect(releasesBetween(data, '2026-10-01', '2026-10-31')).toEqual([])
   })
 })
 
@@ -165,6 +193,14 @@ describe('buildFixtures', () => {
   it('has an up-next title and releases in the current week', () => {
     expect(pickUpNext(summaries)).toBeDefined()
     expect(weekOf(fixtures, now).filter(day => day.releases.length > 0).length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('Tulsa King fixture has a mid-series gap and an upcoming episode', () => {
+    const watchedIds = new Set(fixtures.watches.map(watch => watch.episodeId))
+    for (let number = 7; number <= 10; number++) expect(watchedIds.has(`tulsa-king-3-${number}`)).toBe(false)
+    expect(watchedIds.has('tulsa-king-3-6')).toBe(true)
+    expect(watchedIds.has('tulsa-king-4-8')).toBe(true)
+    expect(fixtures.episodes.find(episode => episode.id === 'tulsa-king-4-9')?.airDate).toBe('2026-11-20')
   })
 
   it('never records a watch for an episode that has not aired', () => {

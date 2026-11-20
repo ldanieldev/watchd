@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { MediaType, TitleStatus, TitleSummary } from '~/utils/library/types'
 import { groupByLetter, groupByPeriod } from '~/utils/library/derive'
+import { titlePath } from '~/utils/library/paths'
 
 const props = defineProps<{ type: MediaType }>()
 
@@ -120,18 +121,23 @@ useHead({ title: pageTitles[props.type].heading })
           v-for="summary in group.items"
           :key="summary.title.id"
         >
-          <MediaPosterImage
-            :title="summary.title"
-            :progress="summary.progress"
-            :badge="badge(summary)?.label"
-            :badge-tone="badge(summary)?.tone"
-          />
-          <p class="mt-2 line-clamp-1 text-sm font-medium text-highlighted">
-            {{ summary.title.name }}
-          </p>
-          <p class="text-xs text-muted">
-            {{ caption(summary) }}
-          </p>
+          <NuxtLink
+            :to="titlePath(summary.title)"
+            class="group block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <MediaPosterImage
+              :title="summary.title"
+              :progress="summary.progress"
+              :badge="badge(summary)?.label"
+              :badge-tone="badge(summary)?.tone"
+            />
+            <p class="mt-2 line-clamp-1 text-sm font-medium text-highlighted group-hover:text-primary">
+              {{ summary.title.name }}
+            </p>
+            <p class="text-xs text-muted">
+              {{ caption(summary) }}
+            </p>
+          </NuxtLink>
         </li>
       </ul>
     </section>

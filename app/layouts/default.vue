@@ -11,7 +11,13 @@ watch(loggedIn, () => {
 
 const isSidebarOpen = useCookie<boolean>('sidebar-open', { default: () => true })
 
-const navMenuItems = [
+const route = useRoute()
+
+function isWithinSection(sectionPath: string): boolean {
+  return route.path === sectionPath || route.path.startsWith(`${sectionPath}/`)
+}
+
+const navMenuItems = computed(() => [
   [
     {
       label: 'Home',
@@ -21,17 +27,20 @@ const navMenuItems = [
     {
       label: 'Movies',
       icon: 'i-lucide-film',
-      to: '/movies'
+      to: '/movies',
+      active: isWithinSection('/movies')
     },
     {
       label: 'TV Shows',
       icon: 'i-lucide-tv',
-      to: '/tv'
+      to: '/tv',
+      active: isWithinSection('/tv')
     },
     {
       label: 'Anime',
       icon: 'i-lucide-sparkles',
-      to: '/anime'
+      to: '/anime',
+      active: isWithinSection('/anime')
     }
   ],
   [
@@ -49,7 +58,7 @@ const navMenuItems = [
       icon: 'i-lucide-bar-chart'
     }
   ]
-] satisfies NavigationMenuItem[][]
+] satisfies NavigationMenuItem[][])
 </script>
 
 <template>

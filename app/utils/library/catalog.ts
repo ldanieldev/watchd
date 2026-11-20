@@ -4,13 +4,14 @@ export interface CatalogEntry {
   id: string
   type: MediaType
   name: string
+  tmdbId?: number
   firstAired: string
   posterPath: string
   backdropPath: string
 }
 
 export const catalog: CatalogEntry[] = [
-  { id: 'tulsa-king', type: 'tv', name: 'Tulsa King', firstAired: '2022-11-13', posterPath: '/y13WOeZ2rz2Ezpws0RJ0I8sQpG4.jpg', backdropPath: '/mNHRGO1gFpR2CYZdANe72kcKq7G.jpg' },
+  { id: 'tulsa-king', type: 'tv', name: 'Tulsa King', tmdbId: 153312, firstAired: '2022-11-13', posterPath: '/y13WOeZ2rz2Ezpws0RJ0I8sQpG4.jpg', backdropPath: '/mNHRGO1gFpR2CYZdANe72kcKq7G.jpg' },
   { id: 'reacher', type: 'tv', name: 'Reacher', firstAired: '2022-02-03', posterPath: '/f1VCQIG2iCyOookdgOzwtUpwWC0.jpg', backdropPath: '/pF0qkRsrHkdYadPWY9AMeFZfcwk.jpg' },
   { id: 'landman', type: 'tv', name: 'Landman', firstAired: '2024-11-17', posterPath: '/hYthRgS1nvQkGILn9YmqsF8kSk6.jpg', backdropPath: '/mh2UczqEXJJVgqohbyZbHTuxwhL.jpg' },
   { id: 'arcane', type: 'tv', name: 'Arcane', firstAired: '2021-11-06', posterPath: '/87C0wecB8bHb1PsrKBI4kJiEkgV.jpg', backdropPath: '/5cvnxEHT3e39DvT6ARw4GNCFrB0.jpg' },
@@ -30,7 +31,7 @@ export const catalog: CatalogEntry[] = [
   { id: 'ted-lasso', type: 'tv', name: 'Ted Lasso', firstAired: '2020-08-14', posterPath: '/uRHsiw1wLxPHFXkkv4Ix1s0O6f4.jpg', backdropPath: '/4bG49jVR7NrCNQjahDUsDqvIwle.jpg' },
   { id: 'stranger-things', type: 'tv', name: 'Stranger Things', firstAired: '2016-07-15', posterPath: '/uOOtwVbSr4QDjAGIifLDwpb2Pdl.jpg', backdropPath: '/9P4IIMYY3HifqeruZq0ZZ9g7YUi.jpg' },
   { id: 'wednesday', type: 'tv', name: 'Wednesday', firstAired: '2022-11-23', posterPath: '/9PFonBhy4cQy7Jz20NpMygczOkv.jpg', backdropPath: '/iHSwvRVsRyxpX7FE7GbviaDvgGZ.jpg' },
-  { id: 'frieren-beyond-journey-s-end', type: 'anime', name: 'Frieren: Beyond Journey\'s End', firstAired: '2023-09-29', posterPath: '/dqZENchTd7lp5zht7BdlqM7RBhD.jpg', backdropPath: '/rBOnrVlck7BIlGeWVlzYiZeg4l2.jpg' },
+  { id: 'frieren-beyond-journey-s-end', type: 'anime', name: 'Frieren: Beyond Journey\'s End', tmdbId: 209867, firstAired: '2023-09-29', posterPath: '/dqZENchTd7lp5zht7BdlqM7RBhD.jpg', backdropPath: '/rBOnrVlck7BIlGeWVlzYiZeg4l2.jpg' },
   { id: 'saga-of-tanya-the-evil', type: 'anime', name: 'Saga of Tanya the Evil', firstAired: '2017-01-06', posterPath: '/5nwiHomKZBBF9DLrolfZapi3fDm.jpg', backdropPath: '/xe2IkfzpGFObODJLTpBB9bdRpbB.jpg' },
   { id: 'reincarnated-as-a-sword', type: 'anime', name: 'Reincarnated as a Sword', firstAired: '2022-10-05', posterPath: '/yZ3VZVc7iyF7KtIjERBGEedVXqA.jpg', backdropPath: '/fo5qwDAVqY7j2jmL350WKjk6kmi.jpg' },
   { id: 'black-clover', type: 'anime', name: 'Black Clover', firstAired: '2017-10-03', posterPath: '/uZUtoVChBGhNj9OfrM2LYpwBm8E.jpg', backdropPath: '/AsaEmDMgrt9MCCTXxUzY9PtFZko.jpg' },
@@ -57,11 +58,12 @@ export const catalog: CatalogEntry[] = [
   { id: 'the-devil-wears-prada-2', type: 'movie', name: 'The Devil Wears Prada 2', firstAired: '2026-05-01', posterPath: '/fCAURTUx3YfsJ8k9I0UamjSILiR.jpg', backdropPath: '/dRoFlUbH1l51ACmx5oPCI3jfvZq.jpg' },
   { id: 'mortal-kombat-ii', type: 'movie', name: 'Mortal Kombat II', firstAired: '2026-05-08', posterPath: '/hwRdDFIhaEmpRgoki805YvyyjZf.jpg', backdropPath: '/4EAAwpylq313qrDqpCxulUrXBNF.jpg' },
   { id: 'the-wrecking-crew', type: 'movie', name: 'The Wrecking Crew', firstAired: '2026-01-28', posterPath: '/gbVwHl4YPSq6BcC92TQpe7qUTh6.jpg', backdropPath: '/cz4vLJrmaV1zJlRYbxqtvLzeLWB.jpg' },
-  { id: 'glass-onion-a-knives-out-mystery', type: 'movie', name: 'Glass Onion: A Knives Out Mystery', firstAired: '2022-11-23', posterPath: '/vDGr1YdrlfbU9wxTOdpf3zChmv9.jpg', backdropPath: '/y3uOfZAYwLkbvhunswBCskNMrfI.jpg' },
-  { id: 'wake-up-dead-man-a-knives-out-mystery', type: 'movie', name: 'Wake Up Dead Man: A Knives Out Mystery', firstAired: '2025-11-26', posterPath: '/iV9LM8aUb83BjCCx2RUnKE5sSQg.jpg', backdropPath: '/fiRDzpcJe7qz3yIR43hdXIE3NHv.jpg' },
-  { id: 'blade-runner-2049', type: 'movie', name: 'Blade Runner 2049', firstAired: '2017-10-06', posterPath: '/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg', backdropPath: '/gNdLJU9TxrpGx4dkZidjys3fyy0.jpg' },
+  { id: 'glass-onion-a-knives-out-mystery', type: 'movie', name: 'Glass Onion: A Knives Out Mystery', tmdbId: 661374, firstAired: '2022-11-23', posterPath: '/vDGr1YdrlfbU9wxTOdpf3zChmv9.jpg', backdropPath: '/y3uOfZAYwLkbvhunswBCskNMrfI.jpg' },
+  { id: 'wake-up-dead-man-a-knives-out-mystery', type: 'movie', name: 'Wake Up Dead Man: A Knives Out Mystery', tmdbId: 812583, firstAired: '2025-11-26', posterPath: '/iV9LM8aUb83BjCCx2RUnKE5sSQg.jpg', backdropPath: '/fiRDzpcJe7qz3yIR43hdXIE3NHv.jpg' },
+  { id: 'blade-runner-2049', type: 'movie', name: 'Blade Runner 2049', tmdbId: 335984, firstAired: '2017-10-06', posterPath: '/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg', backdropPath: '/gNdLJU9TxrpGx4dkZidjys3fyy0.jpg' },
+  { id: 'blade-runner', type: 'movie', name: 'Blade Runner', tmdbId: 78, firstAired: '1982-06-25', posterPath: '/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg', backdropPath: '/2spEHYDcyE9r9mS7AFEscfKVDzO.jpg' },
   { id: 'ex-machina', type: 'movie', name: 'Ex Machina', firstAired: '2015-04-10', posterPath: '/dmJW8IAKHKxFNiUnoDR7JfsK7Rp.jpg', backdropPath: '/uqOuJ50EtTj7kkDIXP8LCg7G45D.jpg' },
-  { id: 'dune-part-two', type: 'movie', name: 'Dune: Part Two', firstAired: '2024-03-01', posterPath: '/6izwz7rsy95ARzTR3poZ8H6c5pp.jpg', backdropPath: '/eZ239CUp1d6OryZEBPnO2n87gMG.jpg' },
+  { id: 'dune-part-two', type: 'movie', name: 'Dune: Part Two', tmdbId: 693134, firstAired: '2024-03-01', posterPath: '/6izwz7rsy95ARzTR3poZ8H6c5pp.jpg', backdropPath: '/eZ239CUp1d6OryZEBPnO2n87gMG.jpg' },
   { id: 'oppenheimer', type: 'movie', name: 'Oppenheimer', firstAired: '2023-07-21', posterPath: '/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', backdropPath: '/neeNHeXjMF5fXoCJRsOmkNGC7q.jpg' },
   { id: 'wicked-for-good', type: 'movie', name: 'Wicked: For Good', firstAired: '2025-11-20', posterPath: '/si9tolnefLSUKaqQEGz1bWArOaL.jpg', backdropPath: '/cGbPBHKSFO7hSIjxkb3KOaGdOep.jpg' },
   { id: 'zootopia-2', type: 'movie', name: 'Zootopia 2', firstAired: '2025-11-26', posterPath: '/oJ7g2CifqpStmoYQyaLQgEU32qO.jpg', backdropPath: '/lgotja3xMoJZbynwHfcQcJAEMWH.jpg' },
@@ -69,5 +71,8 @@ export const catalog: CatalogEntry[] = [
   { id: 'interstellar', type: 'movie', name: 'Interstellar', firstAired: '2014-11-04', posterPath: '/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg', backdropPath: '/8sNiAPPYU14PUepFNeSNGUTiHW.jpg' },
   { id: 'everything-everywhere-all-at-once', type: 'movie', name: 'Everything Everywhere All at Once', firstAired: '2022-03-25', posterPath: '/u68AjlvlutfEIcpmbYpKcdi09ut.jpg', backdropPath: '/fIwiFha3WPu5nHkBeMQ4GzEk0Hv.jpg' },
   { id: 'sinners', type: 'movie', name: 'Sinners', firstAired: '2025-04-18', posterPath: '/fWPgbnt2LSqkQ6cdQc0SZN9CpLm.jpg', backdropPath: '/j7KqDRzjbvIjDv7cdHz9G3ZYEQy.jpg' },
-  { id: 'the-batman', type: 'movie', name: 'The Batman', firstAired: '2022-03-04', posterPath: '/74xTEgt7R36Fpooo50r9T25onhq.jpg', backdropPath: '/rvtdN5XkWAfGX6xDuPL6yYS2seK.jpg' }
+  { id: 'the-batman', type: 'movie', name: 'The Batman', firstAired: '2022-03-04', posterPath: '/74xTEgt7R36Fpooo50r9T25onhq.jpg', backdropPath: '/rvtdN5XkWAfGX6xDuPL6yYS2seK.jpg' },
+  { id: 'knives-out', type: 'movie', name: 'Knives Out', tmdbId: 546554, firstAired: '2019-11-27', posterPath: '/pThyQovXQrw2m0s9x82twj48Jq4.jpg', backdropPath: '/4HWAQu28e2yaWrtupFPGFkdNU7V.jpg' },
+  { id: 'dune', type: 'movie', name: 'Dune', tmdbId: 438631, firstAired: '2021-09-15', posterPath: '/v1tRXZ4JtD2Iv6fjkPvT4GiwslV.jpg', backdropPath: '/qVgZu5BTx6pu4owCvVOm4zjTfOi.jpg' },
+  { id: 'dune-part-three', type: 'movie', name: 'Dune: Part Three', tmdbId: 1170608, firstAired: '2026-12-15', posterPath: '/d43fvHQsIMa4kpyhKXw0haEJIvI.jpg', backdropPath: '/i5E9H7Ik0u61ylDDTbmUpTL3Yw.jpg' }
 ]

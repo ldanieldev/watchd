@@ -6,6 +6,13 @@
   --font-display: 'Bricolage Grotesque', sans-serif;
 }
 
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @utility page-shell{
   @apply flex flex-col w-full lg:max-w-2xl mx-auto p-8 lg:px-0 gap-8;
 }
