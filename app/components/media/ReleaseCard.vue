@@ -8,7 +8,10 @@ defineProps<{ release: Release }>()
 </script>
 
 <template>
-  <div class="flex items-center gap-3">
+  <div
+    :title="release.title.name"
+    class="flex items-center gap-3"
+  >
     <img
       :src="tmdbImage(release.title.posterPath, 'w92')"
       alt=""

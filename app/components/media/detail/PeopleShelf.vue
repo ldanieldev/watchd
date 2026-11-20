@@ -42,6 +42,7 @@ function hasProfileImage(person: CreditPerson) {
         <component
           :is="personDetailFor(person.personId) ? NuxtLinkComponent : 'div'"
           :to="personDetailFor(person.personId) ? personPath(person.personId) : undefined"
+          :title="person.role ? `${person.name} · ${person.role}` : person.name"
           class="group block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <div class="relative aspect-[2/3] overflow-hidden rounded-md bg-elevated ring-1 ring-default/50">
@@ -65,7 +66,7 @@ function hasProfileImage(person: CreditPerson) {
             </span>
           </div>
           <p
-            class="mt-2 line-clamp-1 text-sm font-medium text-highlighted"
+            class="mt-2 line-clamp-2 text-sm font-medium text-highlighted"
             :class="{ 'group-hover:text-primary': personDetailFor(person.personId) }"
           >
             {{ person.name }}

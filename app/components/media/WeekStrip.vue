@@ -62,6 +62,7 @@ onMounted(() => {
         <li
           v-for="release in day.releases"
           :key="`${release.title.id}-${release.episode?.id ?? 'movie'}`"
+          :title="release.title.name"
           class="flex items-center gap-1.5 text-xs leading-tight"
           :class="release.watched ? 'text-muted line-through' : 'text-default'"
         >

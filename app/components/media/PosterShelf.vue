@@ -45,6 +45,7 @@ withDefaults(defineProps<{
       >
         <NuxtLink
           :to="titlePath(item.title)"
+          :title="item.caption ? `${item.title.name} · ${item.caption}` : item.title.name"
           class="group block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <MediaPosterImage
@@ -52,7 +53,7 @@ withDefaults(defineProps<{
             :progress="item.progress"
             sizes="10rem"
           />
-          <p class="mt-2 line-clamp-1 text-sm font-medium text-highlighted group-hover:text-primary">
+          <p class="mt-2 line-clamp-2 text-sm font-medium text-highlighted group-hover:text-primary">
             {{ item.title.name }}
           </p>
           <p class="mt-0.5 flex items-center gap-1.5 text-xs text-muted">

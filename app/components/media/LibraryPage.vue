@@ -123,6 +123,7 @@ useHead({ title: pageTitles[props.type].heading })
         >
           <NuxtLink
             :to="titlePath(summary.title)"
+            :title="summary.title.name"
             class="group block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <MediaPosterImage
@@ -131,7 +132,7 @@ useHead({ title: pageTitles[props.type].heading })
               :badge="badge(summary)?.label"
               :badge-tone="badge(summary)?.tone"
             />
-            <p class="mt-2 line-clamp-1 text-sm font-medium text-highlighted group-hover:text-primary">
+            <p class="mt-2 line-clamp-2 text-sm font-medium text-highlighted group-hover:text-primary">
               {{ summary.title.name }}
             </p>
             <p class="text-xs text-muted">

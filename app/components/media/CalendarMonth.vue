@@ -65,6 +65,7 @@ function dayLabel(date: string, count: number) {
         <span
           v-for="release in (releasesByDate.get(cell.date) ?? []).slice(0, VISIBLE_PER_DAY)"
           :key="`${release.title.id}-${release.episode?.id ?? 'movie'}`"
+          :title="release.title.name"
           class="flex min-w-0 items-center gap-1 text-[0.6875rem] leading-tight text-default"
         >
           <span
