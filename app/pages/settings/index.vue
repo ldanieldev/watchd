@@ -1,13 +1,9 @@
 <script setup lang="ts">
-
+definePageMeta({
+  redirect: '/settings/profile'
+})
 </script>
 
 <template>
-  <div>
-    <UPageCard>
-      <UPageHeader>
-        <h1>Sidebar</h1>
-      </UPageHeader>
-    </UPageCard>
-  </div>
+  <div />
 </template>

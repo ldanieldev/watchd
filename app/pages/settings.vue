@@ -3,14 +3,9 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const links = [[
   {
-    label: 'Sidebar',
-    icon: 'i-lucide-sidebar',
-    to: '/settings',
-    exact: true
-  },
-  {
-    label: 'Home Page',
-    icon: 'i-lucide-layers-2'
+    label: 'Profile',
+    icon: 'i-lucide-user',
+    to: '/settings/profile'
   },
   {
     label: 'Integrations',

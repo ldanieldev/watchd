@@ -1,13 +1,9 @@
-<script setup lang="ts">
-
-</script>
-
 <template>
-  <main class="page-shell">
+  <div>
     <ProfilePersonalInfoForm />
     <USeparator />
     <ProfilePasswordForm />
     <USeparator />
     <ProfileDeleteAccountCard />
-  </main>
+  </div>
 </template>

@@ -8,7 +8,7 @@ type Goto = (path: string, options?: { waitUntil?: 'hydration' }) => Promise<unk
 async function gotoProfileAs(page: Page, goto: Goto, user: TestUser) {
   await goto('/auth/login', { waitUntil: 'hydration' })
   await registerViaApi(page, user)
-  await goto('/profile', { waitUntil: 'hydration' })
+  await goto('/settings/profile', { waitUntil: 'hydration' })
 }
 
 async function logInWith(page: Page, goto: Goto, email: string, password: string) {
@@ -78,7 +78,7 @@ test.describe('account deletion', () => {
     await expect(page.getByRole('dialog')).toBeHidden()
 
     await page.reload()
-    await expect(page).toHaveURL(/\/profile/)
+    await expect(page).toHaveURL(/\/settings\/profile/)
   })
 
   test('deletes the account, redirects to login, and invalidates the credentials', async ({ page, goto }) => {
