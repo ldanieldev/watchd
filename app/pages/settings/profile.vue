@@ -1,9 +1,7 @@
 <template>
-  <div>
+  <div class="flex flex-col gap-6">
     <ProfilePersonalInfoForm />
-    <USeparator />
     <ProfilePasswordForm />
-    <USeparator />
     <ProfileDeleteAccountCard />
   </div>
 </template>
