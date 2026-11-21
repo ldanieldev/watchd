@@ -2,6 +2,7 @@ import { parseFloppyCsv } from '~~/server/utils/import/floppy'
 import { readTraktUpload } from '~~/server/utils/import/trakt'
 import { NotAnExportError, type ParsedImport } from '~~/server/utils/import/types'
 import { importPlays } from '~~/server/utils/import/writePlays'
+import { BodyTooLargeError, readBodyWithin } from '~~/server/utils/import/readBodyWithin'
 
 const sources = {
   floppy: {
@@ -17,18 +18,23 @@ const sources = {
 type Source = keyof typeof sources
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+const tooLarge = () => createError({ statusCode: 413, statusMessage: 'That file is over 100 MB, which is larger than any Floppy or Trakt export.' })
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
 
-  if (Number(getRequestHeader(event, 'content-length') ?? 0) > MAX_UPLOAD_BYTES) {
-    throw createError({ statusCode: 413, statusMessage: 'That file is over 100 MB, which is larger than any Floppy or Trakt export.' })
-  }
+  if (Number(getRequestHeader(event, 'content-length') ?? 0) > MAX_UPLOAD_BYTES) throw tooLarge()
 
   const source = getRouterParam(event, 'source')
   if (!source || !(source in sources)) throw createError({ statusCode: 400, statusMessage: 'Unknown import source' })
   const importer = sources[source as Source]
 
+  try {
+    event._requestBody = await readBodyWithin(getRequestWebStream(event), MAX_UPLOAD_BYTES)
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) throw tooLarge()
+    throw error
+  }
   const parts = await readMultipartFormData(event)
   const files = (parts ?? [])
     .filter(part => part.name === 'file' && part.filename)

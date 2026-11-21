@@ -1,0 +1,100 @@
+import type { CreditPerson } from '~~/shared/types/library'
+
+export type MediaType = 'movie' | 'tv' | 'anime'
+
+export type TitleStatus = 'watching' | 'completed' | 'planned' | 'paused' | 'dropped'
+
+export interface Title {
+  id: string
+  type: MediaType
+  name: string
+  tmdbId?: number
+  firstAired: string
+  posterPath: string
+  backdropPath?: string
+  runtimeMinutes?: number
+  heldStatus?: 'paused' | 'dropped'
+  genres?: string[]
+  studios?: string[]
+  network?: string
+  cast?: CreditPerson[]
+  crew?: CreditPerson[]
+}
+
+export interface Episode {
+  id: string
+  titleId: string
+  season: number
+  number: number
+  airDate: string
+  name?: string
+  runtimeMinutes?: number
+}
+
+export interface WatchEvent {
+  titleId: string
+  episodeId?: string
+  watchedAt: string
+  minutesWatched?: number
+}
+
+export interface LibraryData {
+  titles: Title[]
+  episodes: Episode[]
+  watches: WatchEvent[]
+}
+
+export interface TitleSummary {
+  title: Title
+  status: TitleStatus
+  watchedCount: number
+  airedCount: number
+  totalCount: number
+  newCount: number
+  progress: number
+  timesWatched: number
+  lastWatchedAt?: string
+  nextEpisode?: Episode
+  minutesLeft?: number
+}
+
+export interface Release {
+  title: Title
+  episode?: Episode
+  date: string
+  watched: boolean
+}
+
+export interface WeekDay {
+  date: string
+  isToday: boolean
+  isPast: boolean
+  releases: Release[]
+}
+
+export interface Group<T> {
+  label: string
+  items: T[]
+}
+
+export interface RecentWatch {
+  title: Title
+  episode?: Episode
+  watchedAt: string
+}
+
+export type TypeFilter = MediaType | 'all'
+
+export interface HistoryEntry {
+  title: Title
+  episode?: Episode
+  watchedAt: string
+  minutes: number
+  progress?: number
+}
+
+export interface HistoryDay {
+  date: string
+  entries: HistoryEntry[]
+  totalMinutes: number
+}

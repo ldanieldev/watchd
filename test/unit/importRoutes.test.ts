@@ -39,6 +39,20 @@ describe('POST /api/import/:source', () => {
     expect(importPlays).not.toHaveBeenCalled()
   })
 
+  it('rejects an upload without a Content-Length that streams past 100 MB with 413', async () => {
+    const oneMebibyte = new Uint8Array(1024 * 1024)
+    let sent = 0
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent++ < 101) controller.enqueue(oneMebibyte)
+        else controller.close()
+      }
+    })
+
+    await expect(runImport({ ...upload('floppy', [file('f.csv', floppyCsv)]), stream })).rejects.toMatchObject({ statusCode: 413 })
+    expect(importPlays).not.toHaveBeenCalled()
+  })
+
   it('rejects an unknown source with 400', async () => {
     await expect(runImport(upload('imdb', [file('f.csv', floppyCsv)]))).rejects.toMatchObject({ statusCode: 400 })
   })

@@ -18,6 +18,9 @@ export interface HandlerEvent {
   params?: Record<string, string>
   multipart?: MultipartPart[]
   headers?: Record<string, string>
+  stream?: ReadableStream<Uint8Array>
+  query?: Record<string, string>
+  cookies?: Record<string, string>
 }
 
 type Settle<T> = <R1 = T, R2 = never>(
@@ -94,6 +97,9 @@ export function createServerHandlerHarness() {
     ? Promise.resolve(session)
     : Promise.reject(Object.assign(new Error('Unauthorized'), { statusCode: 401 })))
   vi.stubGlobal('readMultipartFormData', (event: HandlerEvent) => Promise.resolve(event.multipart))
+  vi.stubGlobal('getQuery', (event: HandlerEvent) => event.query ?? {})
+  vi.stubGlobal('getCookie', (event: HandlerEvent, name: string) => event.cookies?.[name])
+  vi.stubGlobal('getRequestWebStream', (event: HandlerEvent) => event.stream)
   vi.stubGlobal('getRequestHeader', (event: HandlerEvent, name: string) => event.headers?.[name.toLowerCase()])
   vi.stubGlobal('clearUserSession', clearUserSession)
 
