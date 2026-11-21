@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
-import { enableAutoUnmount } from '@vue/test-utils'
+import { enableAutoUnmount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import SeasonPage from '~/pages/tv/[id]/season/[season].vue'
 import { useFixtureLibrary } from '~~/test/fixtures/library'
@@ -8,11 +8,11 @@ import { useFixtureLibrary } from '~~/test/fixtures/library'
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
 
-function rowFor(wrapper: Awaited<ReturnType<typeof mountSuspended>>, code: string) {
+function rowFor(wrapper: VueWrapper, code: string): DOMWrapper<Element> {
   return wrapper.findAll('[data-episode-row]').find(row => row.text().includes(code))!
 }
 
-function buttonLabelled(row: ReturnType<typeof rowFor>, label: string) {
+function buttonLabelled(row: DOMWrapper<Element>, label: string) {
   return row.findAll('button').find(button => button.text().startsWith(label))
 }
 

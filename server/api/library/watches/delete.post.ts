@@ -2,7 +2,7 @@ import { and, eq, isNull, or } from 'drizzle-orm'
 import { watches } from '~~/server/db/schema'
 import { readWatchKeys } from '~~/server/utils/library/watchBody'
 
-const equalsOrNull = (column: typeof watches.season, value: number | null) => (value === null ? isNull(column) : eq(column, value))
+const equalsOrNull = (column: typeof watches.season | typeof watches.number, value: number | null) => (value === null ? isNull(column) : eq(column, value))
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
