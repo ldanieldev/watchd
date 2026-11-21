@@ -35,9 +35,9 @@ const watchedHeading = computed(() => `You've watched ${watchedShelfItems.value.
     >
       <div class="relative aspect-[2/3] w-28 shrink-0 self-start overflow-hidden rounded-md bg-default shadow-lg ring-1 ring-default/50 sm:w-40 lg:w-48">
         <img
+          v-if="person.profilePath && !profileFailed"
           width="300"
           height="450"
-          v-if="person.profilePath && !profileFailed"
           :src="tmdbImage(person.profilePath, 'w300')"
           :srcset="`${tmdbImage(person.profilePath, 'w300')} 300w, ${tmdbImage(person.profilePath, 'h632')} 421w`"
           sizes="(min-width: 1024px) 12rem, (min-width: 640px) 10rem, 7rem"

@@ -11,9 +11,9 @@ defineProps<{ title: Title }>()
     aria-labelledby="detail-hero-title"
   >
     <img
+      v-if="title.backdropPath"
       width="1280"
       height="720"
-      v-if="title.backdropPath"
       :src="tmdbImage(title.backdropPath, 'w1280')"
       :srcset="`${tmdbImage(title.backdropPath, 'w780')} 780w, ${tmdbImage(title.backdropPath, 'w1280')} 1280w`"
       sizes="(min-width: 1024px) 70vw, 100vw"

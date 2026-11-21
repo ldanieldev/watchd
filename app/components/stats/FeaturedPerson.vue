@@ -17,9 +17,9 @@ const ringLength = computed(() => props.featured.playShare * 2 * Math.PI * 40)
   <div class="flex flex-col gap-5">
     <div class="flex flex-wrap items-center gap-4">
       <img
+        v-if="featured.person.profilePath"
         width="185"
         height="278"
-        v-if="featured.person.profilePath"
         :src="tmdbImage(featured.person.profilePath, 'w185')"
         alt=""
         class="size-20 rounded-full object-cover ring-2 ring-default"

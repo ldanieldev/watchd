@@ -22,9 +22,9 @@ const max = computed(() => Math.max(0, ...props.rows.map(row => row.value)))
     >
       <span class="text-right tabular-nums text-muted">{{ index + 1 }}</span>
       <img
+        v-if="row.image"
         width="32"
         height="32"
-        v-if="row.image"
         :src="row.image"
         alt=""
         loading="lazy"

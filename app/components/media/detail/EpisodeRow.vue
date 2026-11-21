@@ -53,9 +53,9 @@ const airLabel = computed(() => {
       :class="{ 'opacity-60': row.state === 'upcoming' }"
     >
       <img
+        v-if="stillPath"
         width="300"
         height="169"
-        v-if="stillPath"
         :src="tmdbImage(stillPath, 'w300')"
         alt=""
         loading="lazy"

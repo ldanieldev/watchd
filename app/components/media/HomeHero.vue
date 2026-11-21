@@ -24,9 +24,9 @@ const behindLabel = computed(() => {
     aria-labelledby="hero-title"
   >
     <img
+      v-if="upNext.title.backdropPath"
       width="1280"
       height="720"
-      v-if="upNext.title.backdropPath"
       :src="tmdbImage(upNext.title.backdropPath, 'w1280')"
       :srcset="`${tmdbImage(upNext.title.backdropPath, 'w780')} 780w, ${tmdbImage(upNext.title.backdropPath, 'w1280')} 1280w`"
       sizes="(min-width: 1024px) 70vw, 100vw"
