@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ref } from 'vue'
-import { enableAutoUnmount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import HistoryPage from '~/pages/history.vue'
-import type { LibraryData } from '~/utils/library/types'
+import type { LibraryData } from '~~/shared/utils/library/types'
 import { useFixtureLibrary, withSnapshotDetails, withSnapshotEpisode } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
@@ -45,10 +45,12 @@ describe('history page', () => {
   it('offers a jump back from an empty month', async () => {
     const wrapper = await mountSuspended(HistoryPage, { route: '/history' })
     await wrapper.find('button[aria-label="Previous month"]').trigger('click')
+    await flushPromises()
 
     expect(wrapper.text()).toContain('Nothing watched in February 2026')
     const jump = wrapper.findAll('button').find(button => button.text() === 'Go to March 2026')!
     await jump.trigger('click')
+    await flushPromises()
     expect(wrapper.find('h3').text()).toBe('Monday, Mar 2, 2026')
   })
 })

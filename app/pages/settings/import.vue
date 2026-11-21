@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import type { ImportSummary } from '~~/shared/types/library'
-import { LIBRARY_DATA_KEY } from '~/composables/useLibrary'
-
 useHead({ title: 'Import data' })
 
 const progress = useTemplateRef<{ refreshStatus: () => Promise<void> }>('progress')
 
-async function onImported(summary: ImportSummary) {
-  if (summary.added > 0) await refreshNuxtData(LIBRARY_DATA_KEY)
+async function onImported() {
   await progress.value?.refreshStatus()
 }
 </script>

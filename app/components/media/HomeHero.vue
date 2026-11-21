@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { TitleSummary, WeekDay } from '~/utils/library/types'
-import { episodeCode } from '~/utils/library/derive'
+import type { TitleSummary, WeekDay } from '~~/shared/utils/library/types'
+import { episodeCode } from '~~/shared/utils/library/derive'
 import { titlePath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
 
@@ -24,6 +24,8 @@ const behindLabel = computed(() => {
     aria-labelledby="hero-title"
   >
     <img
+      width="1280"
+      height="720"
       v-if="upNext.title.backdropPath"
       :src="tmdbImage(upNext.title.backdropPath, 'w1280')"
       :srcset="`${tmdbImage(upNext.title.backdropPath, 'w780')} 780w, ${tmdbImage(upNext.title.backdropPath, 'w1280')} 1280w`"

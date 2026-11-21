@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import MediaPosterImage from '~/components/media/PosterImage.vue'
-import type { Title } from '~/utils/library/types'
+import type { Title } from '~~/shared/utils/library/types'
 
 const title: Title = { id: 'dead', type: 'tv', name: 'Dead Poster Show', firstAired: '2026-01-01', posterPath: '/missing.jpg' }
 

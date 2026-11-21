@@ -1,23 +1,11 @@
-import type { Episode, LibraryData, MediaType, WatchEvent } from '~/utils/library/types'
-import { continueWatching, isSpecial, pickUpNext, recentlyWatched, summarize, weekOf } from '~/utils/library/derive'
-import { parseIsoDate } from '~/utils/library/dates'
-import { todayIn, toZonedTimestamp, zonedTimeToUtc } from '~~/shared/utils/zonedTime'
+import type { InjectionKey, Ref } from 'vue'
+import type { Episode, LibraryData, MediaType, WatchEvent } from '~~/shared/utils/library/types'
+import { isSpecial, summarize } from '~~/shared/utils/library/derive'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
+import { toZonedTimestamp, zonedTimeToUtc } from '~~/shared/utils/zonedTime'
 
-const LIBRARY_STATE_KEY = 'library'
-export const LIBRARY_DATA_KEY = 'library-data'
-
-function emptyLibrary(): LibraryData {
+export function emptyLibrary(): LibraryData {
   return { titles: [], episodes: [], watches: [] }
-}
-
-// Returns a flag and writes the payload into state, so SSR serializes the multi-MB library once rather than twice.
-export async function loadLibrary(): Promise<void> {
-  const stored = useState<LibraryData>(LIBRARY_STATE_KEY, emptyLibrary)
-  const requestFetch = useRequestFetch()
-  await useAsyncData(LIBRARY_DATA_KEY, async () => {
-    stored.value = await requestFetch<LibraryData>('/api/library')
-    return true
-  })
 }
 
 function toPayload(watch: WatchEvent) {
@@ -41,13 +29,12 @@ export function whenLibrarySaved(): Promise<unknown> {
 }
 
 /**
- * The signed-in user's library. State stores watch times as UTC instants; `data` and every function here
- * speak wall-clock times in the viewer's zone (`YYYY-MM-DDTHH:mm:ss`), which is what the derive helpers expect.
+ * A slice of the signed-in user's library; `stored` holds UTC instants. `data` and every function here speak
+ * wall-clock times in the viewer's zone (`YYYY-MM-DDTHH:mm:ss`), which is what the derive helpers expect.
  */
-export function useLibrary() {
-  const stored = useState<LibraryData>(LIBRARY_STATE_KEY, emptyLibrary)
+export function createLibraryStore(stored: Ref<LibraryData>) {
   const timeZone = useLibraryTimeZone()
-  const todayIso = useState('library-today', () => todayIn(timeZone.value))
+  const todayIso = useLibraryToday()
   const today = computed(() => parseIsoDate(todayIso.value))
   const showApiError = useApiErrorToast()
 
@@ -56,10 +43,6 @@ export function useLibrary() {
 
   const data = computed<LibraryData>(() => ({ ...stored.value, watches: stored.value.watches.map(toLocal) }))
   const summaries = computed(() => summarize(data.value, today.value))
-  const upNext = computed(() => pickUpNext(summaries.value))
-  const week = computed(() => weekOf(data.value, today.value))
-  const inProgress = computed(() => continueWatching(summaries.value))
-  const recent = computed(() => recentlyWatched(data.value))
 
   function storedMatching(isMatch: (localWatch: WatchEvent) => boolean): WatchEvent[] {
     return stored.value.watches.filter(watch => isMatch(toLocal(watch)))
@@ -143,5 +126,19 @@ export function useLibrary() {
     stored.value = { ...stored.value, titles: stored.value.titles.map(title => (title.id === titleId ? { ...title, type } : title)) }
   }
 
-  return { data, today, summaries, upNext, week, inProgress, recent, markWatched, markSeason, markThrough, unmarkEpisode, addMovieWatch, removeWatch, restoreWatches, discardWatches, setTitleType }
+  return { data, today, summaries, markWatched, markSeason, markThrough, unmarkEpisode, addMovieWatch, removeWatch, restoreWatches, discardWatches, setTitleType }
+}
+
+export type LibraryStore = ReturnType<typeof createLibraryStore>
+
+const LIBRARY_STORE: InjectionKey<LibraryStore> = Symbol('library')
+
+export function provideLibrary(store: LibraryStore) {
+  provide(LIBRARY_STORE, store)
+}
+
+export function useLibrary(): LibraryStore {
+  const store = inject(LIBRARY_STORE)
+  if (!store) throw new Error('useLibrary() runs only under a page that called provideLibrary()')
+  return store
 }

@@ -1,4 +1,4 @@
-import { browserTimeZone, isTimeZone } from '~~/shared/utils/zonedTime'
+import { browserTimeZone, isTimeZone, todayIn } from '~~/shared/utils/zonedTime'
 
 export const TIME_ZONE_COOKIE = 'tz'
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365
@@ -14,4 +14,9 @@ export function useLibraryTimeZone() {
     if (import.meta.client) return browserTimeZone()
     return isTimeZone(cookie.value) ? cookie.value : 'UTC'
   })
+}
+
+export function useLibraryToday() {
+  const timeZone = useLibraryTimeZone()
+  return useState('library-today', () => todayIn(timeZone.value))
 }

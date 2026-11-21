@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import type { TitleSummary } from '~/utils/library/types'
+import type { TitleSummary } from '~~/shared/utils/library/types'
+import type { HomeView } from '~~/shared/utils/library/views'
 import type { ShelfItem } from '~/components/media/PosterShelf.vue'
-import { episodeCode } from '~/utils/library/derive'
-import { relativeDay } from '~/utils/library/dates'
+import { episodeCode } from '~~/shared/utils/library/derive'
+import { parseIsoDate, relativeDay } from '~~/shared/utils/library/dates'
 
-const { upNext, week, inProgress, recent, today, markWatched } = useLibrary()
+const { data: home, refresh } = await useLibraryView<HomeView>('/api/library/views/home')
+const todayIso = useLibraryToday()
+const today = computed(() => parseIsoDate(todayIso.value))
+const upNext = computed(() => home.value?.upNext)
+const week = computed(() => home.value?.week ?? [])
+const inProgress = computed(() => home.value?.inProgress ?? [])
+const recent = computed(() => home.value?.recent ?? [])
 const toast = useToast()
+const showApiError = useApiErrorToast()
 
 function formatMinutesLeft(minutes = 0) {
   const hours = Math.floor(minutes / 60)
@@ -29,10 +37,16 @@ const recentItems = computed<ShelfItem[]>(() => recent.value.map(entry => ({
     : relativeDay(entry.watchedAt, today.value)
 })))
 
-function onMarkWatched(summary: TitleSummary) {
+async function onMarkWatched(summary: TitleSummary) {
   const episode = summary.nextEpisode!
-  markWatched(summary.title.id, episode.id)
+  try {
+    await $fetch('/api/library/watches', { method: 'POST', body: { watches: [{ titleId: summary.title.id, episodeId: episode.id, watchedAt: new Date().toISOString() }] } })
+  } catch (error) {
+    showApiError(error, 'Couldn\'t save watch', 'The change was not saved. Try again.')
+    return
+  }
   toast.add({ title: `Marked ${episodeCode(summary.title, episode)} of ${summary.title.name} watched`, icon: 'i-lucide-check' })
+  await refresh()
 }
 </script>
 

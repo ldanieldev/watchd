@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Title } from '~/utils/library/types'
-import { seasonEpisodeRows, seasonName, seasonSummaries } from '~/utils/library/detail'
+import type { Title } from '~~/shared/utils/library/types'
+import { seasonEpisodeRows, seasonName, seasonSummaries } from '~~/shared/utils/library/detail'
 import type { TitleDetail } from '~~/shared/types/library'
-import { episodeCode } from '~/utils/library/derive'
-import { toIsoDate } from '~/utils/library/dates'
+import { episodeCode } from '~~/shared/utils/library/derive'
+import { toIsoDate } from '~~/shared/utils/library/dates'
 import { seasonPath, titlePath } from '~/utils/library/paths'
 
 const props = defineProps<{ title: Title, season: number, detail?: TitleDetail }>()
@@ -17,31 +17,10 @@ const rows = computed(() => seasonEpisodeRows(data.value, props.title.id, props.
 const summaries = computed(() => seasonSummaries(data.value, props.title.id, todayIso.value))
 const summary = computed(() => summaries.value.find(candidate => candidate.season === props.season))
 
-const episodeBatchSize = 50
-const renderedEpisodeCount = ref(episodeBatchSize)
+const { renderedCount: renderedEpisodeCount, renderMore: renderMoreEpisodes, reset: resetEpisodeBatches } = useRenderBatches(50, 'loadMoreButton')
 const renderedRows = computed(() => rows.value.slice(0, renderedEpisodeCount.value))
 const remainingEpisodeCount = computed(() => rows.value.length - renderedRows.value.length)
-watch(() => props.season, () => {
-  renderedEpisodeCount.value = episodeBatchSize
-})
-
-function renderMoreEpisodes() {
-  renderedEpisodeCount.value += episodeBatchSize
-}
-
-const loadMoreButton = useTemplateRef<{ $el: HTMLElement }>('loadMoreButton')
-let loadMoreObserver: IntersectionObserver | undefined
-
-// IntersectionObserver only fires on crossings, so the button is re-keyed per batch: each new instance gets an initial callback and loading continues while it stays near the viewport.
-watch(loadMoreButton, (button) => {
-  loadMoreObserver?.disconnect()
-  if (!button) return
-  loadMoreObserver = new IntersectionObserver((entries) => {
-    if (entries.some(entry => entry.isIntersecting)) renderMoreEpisodes()
-  }, { rootMargin: '0px 0px 1200px 0px' })
-  loadMoreObserver.observe(button.$el)
-}, { flush: 'post' })
-onBeforeUnmount(() => loadMoreObserver?.disconnect())
+watch(() => props.season, resetEpisodeBatches)
 
 const seasonNumbers = computed(() => summaries.value.map(candidate => candidate.season))
 const seasonIndex = computed(() => seasonNumbers.value.indexOf(props.season))

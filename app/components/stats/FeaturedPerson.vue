@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { featuredPerson } from '~/utils/library/stats'
+import type { featuredPerson } from '~~/shared/utils/library/stats'
 import type { PersonDetail } from '~~/shared/types/library'
 import { personPath, titlePath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
@@ -17,6 +17,8 @@ const ringLength = computed(() => props.featured.playShare * 2 * Math.PI * 40)
   <div class="flex flex-col gap-5">
     <div class="flex flex-wrap items-center gap-4">
       <img
+        width="185"
+        height="278"
         v-if="featured.person.profilePath"
         :src="tmdbImage(featured.person.profilePath, 'w185')"
         alt=""

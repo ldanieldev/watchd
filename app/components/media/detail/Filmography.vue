@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import type { FilmographyCredit } from '~~/shared/types/library'
-import type { Title } from '~/utils/library/types'
+import type { Title } from '~~/shared/utils/library/types'
 import { titlePath } from '~/utils/library/paths'
 import { tmdbPageUrl } from '~/utils/library/tmdb'
 
-const props = defineProps<{ credits: FilmographyCredit[] }>()
+const props = defineProps<{ credits: FilmographyCredit[], libraryTitles: Title[] }>()
 
 type FilmographyFilter = 'all' | 'movie' | 'tv'
 
-const { data } = useLibrary()
 const activeFilter = ref<FilmographyFilter>('all')
 const collapsedRowCount = 2
 const filmographyExpanded = ref(false)
@@ -41,13 +40,11 @@ const filterTabs = computed(() => ([
   badge: { label: String(tab.count), variant: 'subtle' as const, color: 'neutral' as const }
 })))
 
-const watchedTitleIds = computed(() => new Set(data.value.watches.map(watch => watch.titleId)))
-
 const filmographyCards = computed(() => props.credits
   .filter(credit => activeFilter.value === 'all' || credit.mediaType === activeFilter.value)
   .toSorted((first, second) => (second.year ?? 0) - (first.year ?? 0))
   .map((credit) => {
-    const libraryTitle = data.value.titles.find(candidate =>
+    const libraryTitle = props.libraryTitles.find(candidate =>
       candidate.tmdbId === credit.tmdbId && (candidate.type === 'movie' ? 'movie' : 'tv') === credit.mediaType)
     const posterTitle: Title = libraryTitle ?? {
       id: `tmdb-${credit.mediaType}-${credit.tmdbId}`,
@@ -60,7 +57,7 @@ const filmographyCards = computed(() => props.credits
       credit,
       posterTitle,
       libraryPath: libraryTitle ? titlePath(libraryTitle) : undefined,
-      watched: libraryTitle !== undefined && watchedTitleIds.value.has(libraryTitle.id),
+      watched: libraryTitle !== undefined,
       tooltip: [credit.name, credit.year, credit.role].filter(Boolean).join(' · ')
     }
   }))

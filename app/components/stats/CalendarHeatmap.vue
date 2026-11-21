@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { parseIsoDate } from '~/utils/library/dates'
-import { formatDuration } from '~/utils/library/watchTime'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
+import { formatDuration } from '~~/shared/utils/library/watchTime'
 
 const props = defineProps<{
   days: { date: string, minutes: number }[]

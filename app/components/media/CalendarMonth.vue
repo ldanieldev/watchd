@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Release } from '~/utils/library/types'
-import { monthGrid } from '~/utils/library/derive'
+import type { Release } from '~~/shared/utils/library/types'
+import { monthGrid } from '~~/shared/utils/library/derive'
 import { mediaTypeStyles } from '~/utils/library/mediaTypes'
-import { parseIsoDate } from '~/utils/library/dates'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 
 const props = defineProps<{
   year: number

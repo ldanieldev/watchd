@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Title } from '~/utils/library/types'
-import type { SeasonSummary } from '~/utils/library/detail'
+import type { Title } from '~~/shared/utils/library/types'
+import type { SeasonSummary } from '~~/shared/utils/library/detail'
 import type { SeasonDetail } from '~~/shared/types/library'
-import { seasonName } from '~/utils/library/detail'
+import { seasonName } from '~~/shared/utils/library/detail'
 import { seasonPath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
 
@@ -48,6 +48,8 @@ function thumbnailPath(summary: SeasonSummary) {
           class="group flex min-w-0 flex-1 basis-64 items-center gap-4 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <img
+            width="92"
+            height="138"
             :src="tmdbImage(thumbnailPath(summary), 'w92')"
             alt=""
             loading="lazy"

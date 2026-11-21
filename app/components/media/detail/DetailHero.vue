@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Title } from '~/utils/library/types'
+import type { Title } from '~~/shared/utils/library/types'
 import { tmdbImage } from '~/utils/library/tmdb'
 
 defineProps<{ title: Title }>()
@@ -11,6 +11,8 @@ defineProps<{ title: Title }>()
     aria-labelledby="detail-hero-title"
   >
     <img
+      width="1280"
+      height="720"
       v-if="title.backdropPath"
       :src="tmdbImage(title.backdropPath, 'w1280')"
       :srcset="`${tmdbImage(title.backdropPath, 'w780')} 780w, ${tmdbImage(title.backdropPath, 'w1280')} 1280w`"
@@ -27,6 +29,7 @@ defineProps<{ title: Title }>()
         <MediaPosterImage
           :title="title"
           sizes="(min-width: 1024px) 12rem, (min-width: 640px) 10rem, 7rem"
+          eager
         />
       </div>
       <div class="flex min-w-0 max-w-2xl flex-col gap-3">

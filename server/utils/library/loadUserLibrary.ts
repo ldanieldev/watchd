@@ -1,10 +1,11 @@
 import { eq, inArray } from 'drizzle-orm'
 import { episodes, titles, userTitles, watches } from '~~/server/db/schema'
+import type { LibraryData } from '~~/shared/utils/library/types'
 import { toLibraryData } from '~~/server/utils/library/toLibraryData'
 
-export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
-  const watchedTitleIds = db.selectDistinct({ titleId: watches.titleId }).from(watches).where(eq(watches.userId, user.id))
+/** Every title the user has watched with all of its episodes, plus every watch as a UTC instant. */
+export async function loadUserLibrary(userId: number): Promise<LibraryData> {
+  const watchedTitleIds = db.selectDistinct({ titleId: watches.titleId }).from(watches).where(eq(watches.userId, userId))
 
   const [titleRows, episodeRows, watchRows, settingsRows] = await Promise.all([
     withQuerySpan('select-library-titles', () => db
@@ -25,12 +26,12 @@ export default defineEventHandler(async (event) => {
     withQuerySpan('select-library-watches', () => db
       .select({ titleId: watches.titleId, season: watches.season, number: watches.number, watchedAt: watches.watchedAt, minutesWatched: watches.minutesWatched })
       .from(watches)
-      .where(eq(watches.userId, user.id))),
+      .where(eq(watches.userId, userId))),
     withQuerySpan('select-library-settings', () => db
       .select({ titleId: userTitles.titleId, typeOverride: userTitles.typeOverride, heldStatus: userTitles.heldStatus })
       .from(userTitles)
-      .where(eq(userTitles.userId, user.id)))
+      .where(eq(userTitles.userId, userId)))
   ])
 
   return toLibraryData({ titles: titleRows, episodes: episodeRows, watches: watchRows, userTitles: settingsRows })
-})
+}

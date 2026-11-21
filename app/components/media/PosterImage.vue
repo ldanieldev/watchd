@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Title } from '~/utils/library/types'
+import type { Title } from '~~/shared/utils/library/types'
 import { mediaTypeStyles } from '~/utils/library/mediaTypes'
 import { tmdbImage } from '~/utils/library/tmdb'
 
@@ -9,11 +9,13 @@ const props = withDefaults(defineProps<{
   badge?: string
   badgeTone?: 'primary' | 'neutral'
   sizes?: string
+  eager?: boolean
 }>(), {
   progress: undefined,
   badge: undefined,
   badgeTone: 'neutral',
-  sizes: '(min-width: 1024px) 12rem, 30vw'
+  sizes: '(min-width: 1024px) 12rem, 30vw',
+  eager: false
 })
 
 const failed = ref(false)
@@ -45,7 +47,10 @@ const srcset = computed(() => [
       :srcset="srcset"
       :sizes="sizes"
       :alt="title.name"
-      loading="lazy"
+      width="342"
+      height="513"
+      :loading="eager ? 'eager' : 'lazy'"
+      :fetchpriority="eager ? 'high' : undefined"
       decoding="async"
       class="absolute inset-0 size-full object-cover"
       @error="failed = true"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Episode, LibraryData, Title } from '~/utils/library/types'
-import { collectionMembers, seasonEpisodeRows, seasonName, seasonSummaries, titleGaps } from '~/utils/library/detail'
+import type { Episode, LibraryData, Title } from '~~/shared/utils/library/types'
+import { collectionMembers, seasonEpisodeRows, seasonName, seasonSummaries, titleGaps } from '~~/shared/utils/library/detail'
 
 const todayIso = '2026-11-19'
 

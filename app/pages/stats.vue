@@ -1,40 +1,16 @@
 <script setup lang="ts">
-import type { MediaType, TitleStatus, TypeFilter } from '~/utils/library/types'
-import type { CreditRole, StatsRange } from '~/utils/library/stats'
+import type { MediaType, TitleStatus, TypeFilter } from '~~/shared/utils/library/types'
+import type { CreditRole, StatsRange } from '~~/shared/utils/library/stats'
 import type { ShelfItem } from '~/components/media/PosterShelf.vue'
-import {
-  averages,
-  changePercent,
-  completedOfStarted,
-  dailyMinutes,
-  eraLeaders,
-  featuredPerson,
-  genreLeaders,
-  highlights,
-  minutesByHour,
-  minutesByMonth,
-  minutesByType,
-  minutesByWeekday,
-  mostActiveWeekday,
-  mostPlayed,
-  rhythm,
-  roleLeaders,
-  statsWindow,
-  statusByType,
-  statusCounts,
-  statWatches,
-  streaks,
-  studioLeaders,
-  totals
-} from '~/utils/library/stats'
+import { changePercent } from '~~/shared/utils/library/stats'
+import { statsView, type StatsView } from '~~/shared/utils/library/views'
+import { emptyLibrary } from '~/composables/useLibrary'
 import { mediaTypeStyles } from '~/utils/library/mediaTypes'
 import { statusStyles } from '~/utils/library/statusStyles'
-import { parseIsoDate } from '~/utils/library/dates'
-import { formatDuration } from '~/utils/library/watchTime'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
+import { formatDuration } from '~~/shared/utils/library/watchTime'
 
 useHead({ title: 'Statistics' })
-
-const { data, today, summaries } = useLibrary()
 
 const range = ref<StatsRange>('12m')
 const typeFilter = ref<TypeFilter>('all')
@@ -68,19 +44,18 @@ const ROLE_SHELVES: { role: CreditRole, heading: string }[] = [
   { role: 'writer', heading: 'Writers' }
 ]
 
-const window = computed(() => statsWindow(range.value, today.value, data.value))
-const watches = computed(() => statWatches(data.value, typeFilter.value, window.value.from, window.value.to))
-const previousWatches = computed(() => statWatches(data.value, typeFilter.value, window.value.previousFrom, window.value.previousTo))
+const todayIso = useLibraryToday()
+const { data: fetchedStats } = await useLibraryView<StatsView>('/api/library/views/stats', () => ({ range: range.value, type: typeFilter.value }))
+const stats = computed(() => fetchedStats.value ?? statsView(emptyLibrary(), range.value, typeFilter.value, parseIsoDate(todayIso.value)))
 
-const total = computed(() => totals(watches.value))
-const previousTotal = computed(() => totals(previousWatches.value))
-const timeDelta = computed(() => (compare.value ? changePercent(total.value.minutes, previousTotal.value.minutes) : undefined))
-const found = computed(() => highlights(data.value, watches.value, today.value))
-const streak = computed(() => streaks(watches.value, today.value))
-const busiest = computed(() => mostActiveWeekday(watches.value))
-const completion = computed(() => completedOfStarted(summaries.value, typeFilter.value))
-const average = computed(() => averages(watches.value, window.value))
-const featured = computed(() => featuredPerson(watches.value))
+const total = computed(() => stats.value.total)
+const timeDelta = computed(() => (compare.value ? changePercent(total.value.minutes, stats.value.previousTotal.minutes) : undefined))
+const found = computed(() => stats.value.highlights)
+const streak = computed(() => stats.value.streak)
+const busiest = computed(() => stats.value.busiest)
+const completion = computed(() => stats.value.completion)
+const average = computed(() => stats.value.average)
+const featured = computed(() => stats.value.featured)
 const visibleTypes = computed(() => (typeFilter.value === 'all' ? MEDIA_TYPES : [typeFilter.value]))
 
 function hours(minutes: number) {
@@ -103,20 +78,20 @@ const heroSubline = computed(() => {
 })
 
 const typeSegments = computed(() => {
-  const byType = minutesByType(watches.value)
+  const byType = stats.value.minutesByType
   return MEDIA_TYPES.map(type => ({ label: mediaTypeStyles[type].label, value: byType[type], colorClass: mediaTypeStyles[type].barClass, display: `${hours(byType[type])} h` }))
 })
 
-const monthBars = computed(() => minutesByMonth(watches.value, window.value).map(({ month, minutes }) => {
+const monthBars = computed(() => stats.value.months.map(({ month, minutes }) => {
   const date = parseIsoDate(`${month}-01`)
   return { label: date.toLocaleString('en', { month: 'short' }), value: minutes, tooltip: `${date.toLocaleString('en', { month: 'long', year: 'numeric' })}, ${formatDuration(minutes)}` }
 }))
-const weekdayBars = computed(() => minutesByWeekday(watches.value).map((minutes, weekday) => ({
+const weekdayBars = computed(() => stats.value.weekdays.map((minutes, weekday) => ({
   label: WEEKDAYS[weekday]!.slice(0, 3),
   value: minutes,
   tooltip: formatDuration(minutes)
 })))
-const hourBars = computed(() => minutesByHour(watches.value).map((minutes, hour) => ({
+const hourBars = computed(() => stats.value.hours.map((minutes, hour) => ({
   label: `${hour % 12 || 12}${hour < 12 ? 'am' : 'pm'}`,
   value: minutes,
   tooltip: formatDuration(minutes)
@@ -125,11 +100,11 @@ const hourBars = computed(() => minutesByHour(watches.value).map((minutes, hour)
 function tasteBars(rows: { item: string, value: number }[]) {
   return rows.map(row => ({ label: row.item, value: row.value, tooltip: tasteMetric.value === 'minutes' ? formatDuration(row.value) : plural(row.value, 'play') }))
 }
-const genreBars = computed(() => tasteBars(genreLeaders(watches.value, tasteMetric.value, 6)))
-const eraBars = computed(() => tasteBars(eraLeaders(watches.value, tasteMetric.value, Number.POSITIVE_INFINITY).sort((first, second) => first.item.localeCompare(second.item))))
+const genreBars = computed(() => tasteBars(stats.value.genres[tasteMetric.value]))
+const eraBars = computed(() => tasteBars([...stats.value.eras[tasteMetric.value]].sort((first, second) => first.item.localeCompare(second.item))))
 
 function topShelf(type: MediaType): ShelfItem[] {
-  return mostPlayed(watches.value, type).map(row => ({
+  return stats.value.top[type].map(row => ({
     key: row.title.id,
     title: row.title,
     caption: `${formatDuration(row.minutes)}, ${plural(row.plays, type === 'movie' ? 'play' : 'episode')}`
@@ -137,23 +112,23 @@ function topShelf(type: MediaType): ShelfItem[] {
 }
 
 function peopleFor(role: CreditRole) {
-  return roleLeaders(watches.value, role, peopleMetric.value, 8).map(row => ({
+  return stats.value.people[role][peopleMetric.value].map(row => ({
     ...row.item,
     role: plural(row.value, peopleMetric.value === 'plays' ? 'play' : 'title')
   }))
 }
 
-const studioRows = computed(() => studioLeaders(watches.value, studioMetric.value).map(row => ({
+const studioRows = computed(() => stats.value.studios[studioMetric.value].map(row => ({
   label: row.item,
   value: row.value,
   display: plural(row.value, studioMetric.value === 'plays' ? 'play' : 'title')
 })))
 
 const statusSegments = computed(() => {
-  const counts = statusCounts(summaries.value, typeFilter.value)
+  const counts = stats.value.statusCounts
   return STATUSES.map(status => ({ label: statusStyles[status].label, value: counts[status], colorClass: statusStyles[status].colorClass, display: plural(counts[status], 'title') }))
 })
-const statusTable = computed(() => statusByType(summaries.value))
+const statusTable = computed(() => stats.value.statusByType)
 </script>
 
 <template>
@@ -181,6 +156,7 @@ const statusTable = computed(() => statusByType(summaries.value))
           <USwitch
             v-model="compare"
             label="Compare with the period before"
+            aria-label="Compare with the period before"
           />
         </div>
       </div>
@@ -219,7 +195,7 @@ const statusTable = computed(() => statusByType(summaries.value))
       <h2 class="font-display text-2xl font-bold text-highlighted">
         Your year
       </h2>
-      <StatsCalendarHeatmap :days="dailyMinutes(watches, window)" />
+      <StatsCalendarHeatmap :days="stats.daily" />
       <dl class="grid grid-cols-2 gap-x-8 gap-y-5 md:grid-cols-3 xl:grid-cols-5">
         <StatsStatTile
           label="Time watched"
@@ -259,7 +235,7 @@ const statusTable = computed(() => statusByType(summaries.value))
           title="Through the week"
           description="Each dot is an hour of the day; bigger means more time."
         >
-          <StatsRhythmGrid :cells="rhythm(watches)" />
+          <StatsRhythmGrid :cells="stats.rhythm" />
         </StatsPanel>
         <StatsPanel title="Time of day">
           <StatsBarChart
@@ -287,6 +263,7 @@ const statusTable = computed(() => statusByType(summaries.value))
           :content="false"
           color="neutral"
           size="xs"
+          role="group"
           aria-label="Measure genres and eras by"
         />
       </div>
@@ -332,6 +309,7 @@ const statusTable = computed(() => statusByType(summaries.value))
           :content="false"
           color="neutral"
           size="xs"
+          role="group"
           aria-label="Rank people by"
         />
       </div>
@@ -364,6 +342,7 @@ const statusTable = computed(() => statusByType(summaries.value))
             :content="false"
             color="neutral"
             size="xs"
+            role="group"
             aria-label="Rank studios by"
           />
         </template>

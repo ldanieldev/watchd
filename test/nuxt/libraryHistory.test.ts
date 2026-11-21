@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { LibraryData, Title } from '~/utils/library/types'
-import { historyMonth, latestMonthWithWatches } from '~/utils/library/history'
+import type { LibraryData, Title } from '~~/shared/utils/library/types'
+import { historyMonth, latestMonthWithWatches } from '~~/shared/utils/library/history'
 
 const show: Title = { id: 'show', type: 'tv', name: 'Show', firstAired: '2020-01-01', posterPath: '/p.jpg' }
 const movie: Title = { id: 'movie', type: 'movie', name: 'Movie', firstAired: '2020-01-01', posterPath: '/p.jpg', runtimeMinutes: 100 }

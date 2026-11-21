@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MediaType } from '~/utils/library/types'
+import type { MediaType } from '~~/shared/utils/library/types'
 import { mediaTypeStyles } from '~/utils/library/mediaTypes'
 
 defineProps<{ type: MediaType }>()

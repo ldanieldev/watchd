@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { WatchEvent } from '~/utils/library/types'
-import { parseIsoDate } from '~/utils/library/dates'
+import type { WatchEvent } from '~~/shared/utils/library/types'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 
 const props = withDefaults(defineProps<{
   watches: WatchEvent[]

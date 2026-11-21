@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { LibraryData, Title, TitleStatus, TitleSummary, WatchEvent } from '~/utils/library/types'
+import type { LibraryData, Title, TitleStatus, TitleSummary, WatchEvent } from '~~/shared/utils/library/types'
 import {
   averages,
   changePercent,
@@ -24,7 +24,7 @@ import {
   statWatches,
   streaks,
   totals
-} from '~/utils/library/stats'
+} from '~~/shared/utils/library/stats'
 import { withSnapshotDetails } from '~~/test/fixtures/library'
 
 const today = new Date(2026, 10, 20)

@@ -1,30 +1,12 @@
 <script setup lang="ts">
-import type { PersonDetail as PersonDetailData } from '~~/shared/types/library'
+import type { PersonPage } from '~~/shared/types/library'
 import type { ShelfItem } from '~/components/media/PosterShelf.vue'
-import { watchedTitlesForPerson } from '~/utils/library/detail'
-import { parseIsoDate } from '~/utils/library/dates'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 import { tmdbImage } from '~/utils/library/tmdb'
 
-const props = defineProps<{ person: PersonDetailData }>()
+const props = defineProps<{ person: PersonPage }>()
 
-const { data } = useLibrary()
-const biographyExpanded = ref(false)
-const biographyClamped = ref(false)
-const biographyElement = useTemplateRef<HTMLElement>('biography')
-let biographyResizeObserver: ResizeObserver | undefined
-
-function measureBiography() {
-  const element = biographyElement.value
-  if (element && !biographyExpanded.value) biographyClamped.value = element.scrollHeight > element.clientHeight
-}
-
-onMounted(() => {
-  measureBiography()
-  if (!biographyElement.value) return
-  biographyResizeObserver = new ResizeObserver(measureBiography)
-  biographyResizeObserver.observe(biographyElement.value)
-})
-onBeforeUnmount(() => biographyResizeObserver?.disconnect())
+const { expanded: biographyExpanded, clamped: biographyClamped } = useClampedText(useTemplateRef<HTMLElement>('biography'))
 const profileFailed = ref(false)
 const birthdayFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
@@ -36,7 +18,7 @@ const bornLine = computed(() => {
 })
 
 const watchedShelfItems = computed<ShelfItem[]>(() =>
-  watchedTitlesForPerson(data.value, props.person).map((title) => {
+  props.person.libraryTitles.map((title) => {
     const mediaType = title.type === 'movie' ? 'movie' : 'tv'
     const credit = props.person.credits.find(candidate => candidate.tmdbId === title.tmdbId && candidate.mediaType === mediaType)
     return { key: title.id, title, caption: credit?.role ?? '' }
@@ -53,6 +35,8 @@ const watchedHeading = computed(() => `You've watched ${watchedShelfItems.value.
     >
       <div class="relative aspect-[2/3] w-28 shrink-0 self-start overflow-hidden rounded-md bg-default shadow-lg ring-1 ring-default/50 sm:w-40 lg:w-48">
         <img
+          width="300"
+          height="450"
           v-if="person.profilePath && !profileFailed"
           :src="tmdbImage(person.profilePath, 'w300')"
           :srcset="`${tmdbImage(person.profilePath, 'w300')} 300w, ${tmdbImage(person.profilePath, 'h632')} 421w`"
@@ -113,6 +97,9 @@ const watchedHeading = computed(() => `You've watched ${watchedShelfItems.value.
       :show-see-all="false"
     />
 
-    <MediaDetailFilmography :credits="person.credits" />
+    <MediaDetailFilmography
+      :credits="person.credits"
+      :library-titles="person.libraryTitles"
+    />
   </main>
 </template>

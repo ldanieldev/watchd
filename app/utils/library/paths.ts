@@ -1,4 +1,4 @@
-import type { Title } from './types'
+import type { Title } from '~~/shared/utils/library/types'
 
 const sectionByType: Record<Title['type'], string> = { tv: 'tv', anime: 'anime', movie: 'movies' }
 

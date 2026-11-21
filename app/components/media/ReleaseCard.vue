@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Release } from '~/utils/library/types'
-import { episodeCode } from '~/utils/library/derive'
+import type { Release } from '~~/shared/utils/library/types'
+import { episodeCode } from '~~/shared/utils/library/derive'
 import { mediaTypeStyles } from '~/utils/library/mediaTypes'
 import { tmdbImage } from '~/utils/library/tmdb'
 
@@ -13,6 +13,8 @@ defineProps<{ release: Release }>()
     class="flex items-center gap-3"
   >
     <img
+      width="92"
+      height="138"
       :src="tmdbImage(release.title.posterPath, 'w92')"
       alt=""
       loading="lazy"

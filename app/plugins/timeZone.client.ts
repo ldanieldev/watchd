@@ -1,10 +1,10 @@
-import { msUntilNextMidnight } from '~/utils/library/dates'
+import { msUntilNextMidnight } from '~~/shared/utils/library/dates'
 import { browserTimeZone, todayIn } from '~~/shared/utils/zonedTime'
 
 export default defineNuxtPlugin(() => {
   const timeZone = useLibraryTimeZone()
   const cookie = useTimeZoneCookie()
-  const today = useState<string>('library-today')
+  const today = useLibraryToday()
 
   function tick() {
     today.value = todayIn(timeZone.value)

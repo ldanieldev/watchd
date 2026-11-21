@@ -3,8 +3,6 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 
 const { loggedIn } = useUserSession()
 
-await loadLibrary()
-
 watch(loggedIn, () => {
   if (!loggedIn.value) {
     navigateTo('/auth/login')

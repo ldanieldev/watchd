@@ -1,4 +1,4 @@
-import type { TitleStatus } from './types'
+import type { TitleStatus } from '~~/shared/utils/library/types'
 
 export const statusStyles: Record<TitleStatus, { label: string, colorClass: string }> = {
   completed: { label: 'Completed', colorClass: 'bg-primary' },

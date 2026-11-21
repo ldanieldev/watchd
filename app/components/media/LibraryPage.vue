@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { MediaType, TitleStatus, TitleSummary } from '~/utils/library/types'
-import { groupByLetter, groupByPeriod } from '~/utils/library/derive'
+import type { MediaType, TitleStatus, TitleSummary } from '~~/shared/utils/library/types'
+import { groupByLetter, groupByPeriod } from '~~/shared/utils/library/derive'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 import { titlePath } from '~/utils/library/paths'
 
 const props = defineProps<{ type: MediaType }>()
@@ -38,11 +39,13 @@ const sortOptions: { value: SortKey, label: string }[] = [
   { value: 'releaseDate', label: 'Release date' }
 ]
 
-const { summaries, today } = useLibrary()
+const { data: summaries } = await useLibraryView<TitleSummary[]>('/api/library/views/summaries', () => ({ type: props.type }))
+const todayIso = useLibraryToday()
+const today = computed(() => parseIsoDate(todayIso.value))
 const activeStatus = ref<string>('all')
 const sortKey = ref<SortKey>('lastWatched')
 
-const ofType = computed(() => summaries.value.filter(summary => summary.title.type === props.type))
+const ofType = computed(() => summaries.value ?? [])
 
 const tabs = computed(() => statusTabs[props.type].map(tab => ({
   ...tab,
@@ -55,6 +58,22 @@ const groups = computed(() => {
   if (sortKey.value === 'releaseDate') return groupByPeriod(visible, summary => summary.title.firstAired, today.value)
   return groupByPeriod(visible, summary => summary.lastWatchedAt, today.value)
 })
+
+const ABOVE_THE_FOLD_POSTERS = 6
+const { renderedCount, renderMore, reset: resetBatches } = useRenderBatches(48, 'loadMoreButton')
+watch([activeStatus, sortKey], resetBatches)
+
+const visibleGroups = computed(() => {
+  let remaining = renderedCount.value
+  return groups.value.flatMap((group) => {
+    if (remaining <= 0) return []
+    const items = group.items.slice(0, remaining)
+    const firstIndex = renderedCount.value - remaining
+    remaining -= items.length
+    return [{ ...group, items, total: group.items.length, firstIndex }]
+  })
+})
+const remainingCount = computed(() => groups.value.reduce((sum, group) => sum + group.items.length, 0) - visibleGroups.value.reduce((sum, group) => sum + group.items.length, 0))
 
 function caption(summary: TitleSummary) {
   if (summary.title.type !== 'movie') return `${summary.watchedCount} of ${summary.totalCount}`
@@ -108,17 +127,17 @@ useHead({ title: pageTitles[props.type].heading })
     </p>
 
     <section
-      v-for="group in groups"
+      v-for="group in visibleGroups"
       :key="group.label"
       class="flex flex-col gap-4"
     >
       <h2 class="flex items-baseline gap-2 font-display text-xl font-bold text-highlighted">
         {{ group.label }}
-        <span class="font-sans text-xs font-medium text-muted">{{ group.items.length }}</span>
+        <span class="font-sans text-xs font-medium text-muted">{{ group.total }}</span>
       </h2>
       <ul class="grid grid-cols-2 gap-x-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-y-6">
         <li
-          v-for="summary in group.items"
+          v-for="(summary, index) in group.items"
           :key="summary.title.id"
         >
           <NuxtLink
@@ -131,6 +150,7 @@ useHead({ title: pageTitles[props.type].heading })
               :progress="summary.progress"
               :badge="badge(summary)?.label"
               :badge-tone="badge(summary)?.tone"
+              :eager="group.firstIndex + index < ABOVE_THE_FOLD_POSTERS"
             />
             <p class="mt-2 line-clamp-2 text-sm font-medium text-highlighted group-hover:text-primary">
               {{ summary.title.name }}
@@ -142,5 +162,17 @@ useHead({ title: pageTitles[props.type].heading })
         </li>
       </ul>
     </section>
+    <UButton
+      v-if="remainingCount > 0"
+      ref="loadMoreButton"
+      :key="renderedCount"
+      color="neutral"
+      variant="outline"
+      size="sm"
+      class="self-center rounded-full"
+      @click="renderMore"
+    >
+      Show more ({{ remainingCount }} left)
+    </UButton>
   </main>
 </template>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { EnrichmentStatus } from '~~/shared/types/library'
-import { LIBRARY_DATA_KEY } from '~/composables/useLibrary'
 
 const POLL_INTERVAL_MS = 3000
 
@@ -12,13 +11,11 @@ let isActive = true
 
 async function refreshStatus() {
   clearTimeout(pollTimer)
-  const previousPending = status.value?.pending ?? 0
   try {
     status.value = await $fetch<EnrichmentStatus>('/api/import/status')
   } catch {
     status.value = undefined
   }
-  if (previousPending > 0 && status.value?.pending === 0) await refreshNuxtData(LIBRARY_DATA_KEY)
   if (isActive && status.value && status.value.pending > 0) pollTimer = setTimeout(refreshStatus, POLL_INTERVAL_MS)
 }
 

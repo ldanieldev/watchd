@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { Episode, LibraryData, Title } from '~/utils/library/types'
+import type { Episode, LibraryData, Title } from '~~/shared/utils/library/types'
 import { buildFixtures } from '~~/test/fixtures/buildFixtures'
-import { relativeDay } from '~/utils/library/dates'
+import { relativeDay } from '~~/shared/utils/library/dates'
 import {
   episodeCode,
   groupByLetter,
@@ -12,7 +12,7 @@ import {
   releasesBetween,
   summarize,
   weekOf
-} from '~/utils/library/derive'
+} from '~~/shared/utils/library/derive'
 
 const now = new Date(2026, 10, 19, 12)
 

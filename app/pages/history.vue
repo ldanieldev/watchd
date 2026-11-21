@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import type { HistoryEntry, TypeFilter } from '~/utils/library/types'
-import { historyMonth, latestMonthWithWatches } from '~/utils/library/history'
-import { episodeCode } from '~/utils/library/derive'
-import { parseIsoDate } from '~/utils/library/dates'
+import type { HistoryEntry, TypeFilter } from '~~/shared/utils/library/types'
+import type { HistoryView } from '~~/shared/utils/library/views'
+import { episodeCode } from '~~/shared/utils/library/derive'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 import { seasonPath, titlePath } from '~/utils/library/paths'
-import { formatDuration } from '~/utils/library/watchTime'
+import { formatDuration } from '~~/shared/utils/library/watchTime'
 
 useHead({ title: 'History' })
-
-const { data, today } = useLibrary()
 
 const typeFilter = ref<TypeFilter>('all')
 const typeTabs = [
@@ -18,25 +16,33 @@ const typeTabs = [
   { value: 'movie', label: 'Movies' }
 ]
 
-const latest = computed(() => latestMonthWithWatches(data.value, typeFilter.value))
-const startMonth = latest.value ?? { year: today.value.getFullYear(), monthIndex: today.value.getMonth() }
-const visibleMonth = ref(new Date(startMonth.year, startMonth.monthIndex, 1))
+const todayIso = useLibraryToday()
+const requestedMonth = ref('latest')
+const { data: history } = await useLibraryView<HistoryView>('/api/library/views/history', () => ({ month: requestedMonth.value, type: typeFilter.value }))
 
-const days = computed(() => historyMonth(data.value, visibleMonth.value.getFullYear(), visibleMonth.value.getMonth(), typeFilter.value))
+const monthStart = (month: string) => parseIsoDate(`${month}-01`)
+const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+const visibleMonth = computed(() => monthStart(requestedMonth.value === 'latest' ? history.value?.month ?? todayIso.value.slice(0, 7) : requestedMonth.value))
+const days = computed(() => history.value?.days ?? [])
+
+// Sync pins the shown month before the query recomputes, so switching type stays put instead of jumping to that type's latest month.
+watch(typeFilter, () => {
+  requestedMonth.value = monthKey(visibleMonth.value)
+}, { flush: 'sync' })
 
 function monthLabel(date: Date) {
   return date.toLocaleString('en', { month: 'long', year: 'numeric' })
 }
 
-const latestDate = computed(() => (latest.value ? new Date(latest.value.year, latest.value.monthIndex, 1) : undefined))
+const latestDate = computed(() => (history.value?.latest ? monthStart(history.value.latest) : undefined))
 const typeLabel = computed(() => (typeFilter.value === 'all' ? 'anything' : typeTabs.find(tab => tab.value === typeFilter.value)!.label))
 
 function shiftMonth(delta: number) {
-  visibleMonth.value = new Date(visibleMonth.value.getFullYear(), visibleMonth.value.getMonth() + delta, 1)
+  requestedMonth.value = monthKey(new Date(visibleMonth.value.getFullYear(), visibleMonth.value.getMonth() + delta, 1))
 }
 
 function goToLatest() {
-  if (latestDate.value) visibleMonth.value = latestDate.value
+  if (latestDate.value) requestedMonth.value = monthKey(latestDate.value)
 }
 
 function dayHeading(date: string) {

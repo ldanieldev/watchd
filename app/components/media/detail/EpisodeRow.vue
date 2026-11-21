@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Title } from '~/utils/library/types'
-import type { EpisodeRow } from '~/utils/library/detail'
+import type { Title } from '~~/shared/utils/library/types'
+import type { EpisodeRow } from '~~/shared/utils/library/detail'
 import type { EpisodeDetail } from '~~/shared/types/library'
-import { episodeCode } from '~/utils/library/derive'
-import { parseIsoDate, relativeDay } from '~/utils/library/dates'
+import { episodeCode } from '~~/shared/utils/library/derive'
+import { parseIsoDate, relativeDay } from '~~/shared/utils/library/dates'
 import { tmdbImage } from '~/utils/library/tmdb'
 
 const props = defineProps<{
@@ -17,6 +17,8 @@ const emit = defineEmits<{ mark: [], markThrough: [], unmark: [] }>()
 
 const shortDateFormat = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
 const fullDateFormat = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' })
+
+const { expanded: overviewExpanded, clamped: overviewClamped } = useClampedText(useTemplateRef<HTMLElement>('overview'))
 
 const code = computed(() => episodeCode(props.title, props.row.episode))
 const displayName = computed(() => props.detail?.name ?? `Episode ${props.row.episode.number}`)
@@ -51,6 +53,8 @@ const airLabel = computed(() => {
       :class="{ 'opacity-60': row.state === 'upcoming' }"
     >
       <img
+        width="300"
+        height="169"
         v-if="stillPath"
         :src="tmdbImage(stillPath, 'w300')"
         alt=""
@@ -62,7 +66,10 @@ const airLabel = computed(() => {
     <div class="flex min-w-0 flex-1 basis-56 flex-col gap-1">
       <p class="flex items-baseline gap-2">
         <span class="shrink-0 text-sm font-semibold text-muted tabular-nums">{{ code }}</span>
-        <span class="truncate font-medium text-highlighted">{{ displayName }}</span>
+        <span
+          class="truncate font-medium text-highlighted"
+          :title="displayName"
+        >{{ displayName }}</span>
       </p>
       <p class="flex flex-wrap gap-x-3 text-xs text-muted tabular-nums">
         <span>{{ airLabel }}</span>
@@ -70,10 +77,23 @@ const airLabel = computed(() => {
       </p>
       <p
         v-if="detail?.overview"
-        class="line-clamp-2 max-w-prose text-sm text-toned"
+        ref="overview"
+        class="max-w-prose text-sm text-toned"
+        :class="{ 'line-clamp-2': !overviewExpanded }"
       >
         {{ detail.overview }}
       </p>
+      <UButton
+        v-if="overviewClamped || overviewExpanded"
+        :label="overviewExpanded ? 'Show less' : 'Show more'"
+        :aria-expanded="overviewExpanded"
+        :trailing-icon="overviewExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+        color="primary"
+        variant="link"
+        size="xs"
+        class="self-start px-0 font-semibold"
+        @click="overviewExpanded = !overviewExpanded"
+      />
     </div>
     <div
       v-if="row.state !== 'upcoming'"

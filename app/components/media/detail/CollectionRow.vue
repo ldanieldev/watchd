@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { CollectionMemberState } from '~/utils/library/detail'
-import type { Title } from '~/utils/library/types'
-import { parseIsoDate } from '~/utils/library/dates'
+import type { CollectionMemberState } from '~~/shared/utils/library/detail'
+import type { Title } from '~~/shared/utils/library/types'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 import { titlePath } from '~/utils/library/paths'
 
 const props = defineProps<{

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { toZonedTimestamp } from '~~/shared/utils/zonedTime'
-import type { Title, TitleSummary } from '~/utils/library/types'
+import type { Title, TitleSummary } from '~~/shared/utils/library/types'
 import type { TitleDetail } from '~~/shared/types/library'
 import type { Fact } from './FactsList.vue'
-import { collectionMembers, movieWatches } from '~/utils/library/detail'
-import { parseIsoDate, toIsoDate } from '~/utils/library/dates'
+import { collectionMembers, movieWatches } from '~~/shared/utils/library/detail'
+import { parseIsoDate, toIsoDate } from '~~/shared/utils/library/dates'
 import { mediaTypeStyles } from '~/utils/library/mediaTypes'
 
 const props = defineProps<{

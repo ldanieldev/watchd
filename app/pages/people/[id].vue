@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { PersonDetail } from '~~/shared/types/library'
+import type { PersonPage } from '~~/shared/types/library'
 
 const route = useRoute()
-const { data: person } = await useFetch<PersonDetail>(() => `/api/people/${route.params.id}`, { key: `person-${route.params.id}` })
+const { data: person } = await useFetch<PersonPage>(() => `/api/people/${route.params.id}`, { key: `person-${route.params.id}` })
 if (!person.value) throw createError({ statusCode: 404, statusMessage: 'Person not found' })
 useHead({ title: () => person.value?.name ?? 'Person' })
 </script>

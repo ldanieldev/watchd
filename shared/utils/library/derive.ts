@@ -55,19 +55,21 @@ function summarizeEpisodic(title: Title, episodes: Episode[], watches: WatchEven
     newCount: unwatchedAired.length,
     progress: ordered.length === 0 ? 0 : watchedCount / ordered.length,
     timesWatched: derivedStatus === 'completed' ? 1 : 0,
-    lastWatchedAt: latestWatchedAt(watches.filter(watch => regularEpisodeIds.has(watch.episodeId))),
+    lastWatchedAt: latestWatchedAt(watches.filter(watch => watch.episodeId !== undefined && regularEpisodeIds.has(watch.episodeId))),
     nextEpisode: unwatchedAired[0]
   }
 }
 
 export function summarize(data: LibraryData, now: Date): TitleSummary[] {
   const todayIso = toIsoDate(now)
+  const watchesByTitle = Map.groupBy(data.watches, watch => watch.titleId)
+  const episodesByTitle = Map.groupBy(data.episodes, episode => episode.titleId)
   return data.titles.map((title) => {
-    const watches = data.watches.filter(watch => watch.titleId === title.id)
+    const watches = watchesByTitle.get(title.id) ?? []
     if (title.type === 'movie') {
       return summarizeMovie(title, watches)
     }
-    return summarizeEpisodic(title, data.episodes.filter(episode => episode.titleId === title.id), watches, todayIso)
+    return summarizeEpisodic(title, episodesByTitle.get(title.id) ?? [], watches, todayIso)
   })
 }
 
@@ -115,13 +117,18 @@ export function continueWatching(summaries: TitleSummary[]): TitleSummary[] {
 export function recentlyWatched(data: LibraryData, limit = 12): RecentWatch[] {
   const titlesById = new Map(data.titles.map(title => [title.id, title]))
   const episodesById = new Map(data.episodes.map(episode => [episode.id, episode]))
+  const seenTitleIds = new Set<string>()
   return data.watches
     .filter((watch) => {
       const title = titlesById.get(watch.titleId)
       return title && (watch.minutesWatched === undefined || watch.minutesWatched >= (title.runtimeMinutes ?? 0))
     })
     .sort((first, second) => second.watchedAt.localeCompare(first.watchedAt))
-    .filter((watch, index, sorted) => sorted.findIndex(other => other.titleId === watch.titleId) === index)
+    .filter((watch) => {
+      if (seenTitleIds.has(watch.titleId)) return false
+      seenTitleIds.add(watch.titleId)
+      return true
+    })
     .slice(0, limit)
     .map(watch => ({
       title: titlesById.get(watch.titleId)!,

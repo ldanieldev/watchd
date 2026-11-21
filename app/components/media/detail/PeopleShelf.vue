@@ -49,6 +49,8 @@ function hasProfileImage(person: CreditPerson) {
         >
           <div class="relative aspect-[2/3] overflow-hidden rounded-md bg-elevated ring-1 ring-default/50">
             <img
+              width="185"
+              height="278"
               v-if="hasProfileImage(person)"
               :src="tmdbImage(person.profilePath!, 'w185')"
               :srcset="`${tmdbImage(person.profilePath!, 'w185')} 185w, ${tmdbImage(person.profilePath!, 'h632')} 421w`"

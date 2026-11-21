@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDuration } from '~/utils/library/watchTime'
+import { formatDuration } from '~~/shared/utils/library/watchTime'
 
 const props = defineProps<{
   cells: number[][]
@@ -12,7 +12,7 @@ const active = ref<string>()
 const max = computed(() => Math.max(0, ...props.cells.flat()))
 
 function dotSize(minutes: number) {
-  return `${30 + 70 * Math.sqrt(minutes / max.value)}%`
+  return cssPercent(30 + 70 * Math.sqrt(minutes / max.value))
 }
 
 function hourLabel(hour: number) {

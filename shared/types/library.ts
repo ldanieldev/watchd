@@ -1,3 +1,5 @@
+import type { Title } from '../utils/library/types'
+
 export interface CreditPerson {
   personId: number
   name: string
@@ -68,6 +70,10 @@ export interface PersonDetail {
   placeOfBirth?: string
   knownFor: string
   credits: FilmographyCredit[]
+}
+
+export interface PersonPage extends PersonDetail {
+  libraryTitles: Title[]
 }
 
 export interface DetailsSnapshot {

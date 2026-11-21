@@ -1,21 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createError, readBody } from 'h3'
 import { registerEndpoint } from '@nuxt/test-utils/runtime'
-import { loadLibrary, useLibrary, whenLibrarySaved } from '~/composables/useLibrary'
-import type { LibraryData } from '~/utils/library/types'
-import { recentlyWatched } from '~/utils/library/derive'
-import { useFixtureLibrary } from '~~/test/fixtures/library'
+import { useLibrary, whenLibrarySaved } from '~/composables/useLibrary'
+import type { LibraryData } from '~~/shared/utils/library/types'
+import { pickUpNext, recentlyWatched, weekOf } from '~~/shared/utils/library/derive'
+import { fixtureStore } from '~~/test/fixtures/library'
 
 afterEach(() => whenLibrarySaved())
 
-describe('useLibrary', () => {
-  beforeEach(() => {
-    useFixtureLibrary()
+describe('library store', () => {
+  it('throws when no page provided a library', () => {
+    expect(() => useLibrary()).toThrow(/provideLibrary/)
   })
 
   it('marking the up-next episode lowers its new count and tops recently watched', () => {
-    const library = useLibrary()
-    const hero = library.upNext.value!
+    const library = fixtureStore()
+    const hero = pickUpNext(library.summaries.value)!
     const episode = hero.nextEpisode!
 
     library.markWatched(hero.title.id, episode.id)
@@ -26,22 +26,23 @@ describe('useLibrary', () => {
   })
 
   it('moves the hero on once every aired episode of the current hero is watched', () => {
-    const library = useLibrary()
-    const firstHeroId = library.upNext.value!.title.id
+    const library = fixtureStore()
+    const upNext = () => pickUpNext(library.summaries.value)
+    const firstHeroId = upNext()!.title.id
 
-    while (library.upNext.value?.title.id === firstHeroId) {
-      library.markWatched(firstHeroId, library.upNext.value.nextEpisode!.id)
+    while (upNext()?.title.id === firstHeroId) {
+      library.markWatched(firstHeroId, upNext()!.nextEpisode!.id)
     }
 
-    expect(library.upNext.value?.title.id).not.toBe(firstHeroId)
+    expect(upNext()?.title.id).not.toBe(firstHeroId)
     expect(library.summaries.value.find(summary => summary.title.id === firstHeroId)!.newCount).toBe(0)
   })
 
   it('takes today from shared state so server and browser agree on the date', () => {
-    useState('library-today', () => '2026-03-02')
-    const library = useLibrary()
+    const library = fixtureStore()
+    useState('library-today').value = '2026-03-02'
 
-    expect(library.week.value.find(day => day.isToday)?.date).toBe('2026-03-02')
+    expect(weekOf(library.data.value, library.today.value).find(day => day.isToday)?.date).toBe('2026-03-02')
   })
 
   function seedLibrary(watches: LibraryData['watches'] = []) {
@@ -52,13 +53,11 @@ describe('useLibrary', () => {
       number,
       airDate: number <= 3 ? '2026-01-01' : '2999-01-01'
     }))
-    const data = useState<LibraryData>('library')
-    data.value = {
+    return fixtureStore({
       titles: [{ id: 's', type: 'tv', name: 's', firstAired: '2026-01-01', posterPath: '/p.jpg' }],
       episodes,
       watches
-    }
-    return useLibrary()
+    })
   }
 
   it('markSeason marks only aired unwatched episodes and is idempotent', () => {
@@ -117,11 +116,11 @@ describe('useLibrary', () => {
   })
 
   it('markThrough on a special returns an empty array', () => {
-    const library = seedLibrary()
-    library.data.value = {
-      ...library.data.value,
-      episodes: [...library.data.value.episodes, { id: 's-0-1', titleId: 's', season: 0, number: 1, airDate: '2026-01-01' }]
-    }
+    const library = fixtureStore({
+      titles: [{ id: 's', type: 'tv', name: 's', firstAired: '2026-01-01', posterPath: '/p.jpg' }],
+      episodes: [{ id: 's-0-1', titleId: 's', season: 0, number: 1, airDate: '2026-01-01' }],
+      watches: []
+    })
 
     expect(library.markThrough('s', 's-0-1')).toEqual([])
     expect(library.data.value.watches).toHaveLength(0)
@@ -134,33 +133,20 @@ describe('useLibrary', () => {
   })
 })
 
-describe('useLibrary persistence', () => {
+describe('library store persistence', () => {
   const seeded: LibraryData = {
     titles: [{ id: '5', type: 'tv', name: 'Show', firstAired: '2026-01-01', posterPath: '/p.jpg' }],
     episodes: [1, 2].map(number => ({ id: `5-1-${number}`, titleId: '5', season: 1, number, airDate: '2026-01-01' })),
     watches: []
   }
 
-  beforeEach(() => {
-    useFixtureLibrary({ titles: [], episodes: [], watches: [] })
-  })
-
-  it('loadLibrary fills the library from the server', async () => {
-    registerEndpoint('/api/library', { handler: () => seeded, once: true })
-
-    await loadLibrary()
-
-    expect(useLibrary().data.value.titles.map(title => title.id)).toEqual(['5'])
-  })
-
   it('posts a marked episode with an absolute watch time', async () => {
-    useFixtureLibrary(structuredClone(seeded))
+    const library = fixtureStore(structuredClone(seeded))
     const bodies: unknown[] = []
     registerEndpoint('/api/library/watches', { method: 'POST', once: true, handler: async (event) => {
       bodies.push(await readBody(event))
       return { added: 1 }
     } })
-    const library = useLibrary()
 
     library.markWatched('5', '5-1-1')
     await vi.waitFor(() => expect(bodies).toHaveLength(1))
@@ -171,11 +157,10 @@ describe('useLibrary persistence', () => {
   })
 
   it('puts the library back when saving a mark fails', async () => {
-    useFixtureLibrary(structuredClone(seeded))
+    const library = fixtureStore(structuredClone(seeded))
     registerEndpoint('/api/library/watches', { method: 'POST', once: true, handler: () => {
       throw createError({ statusCode: 500, statusMessage: 'boom' })
     } })
-    const library = useLibrary()
 
     library.markWatched('5', '5-1-1')
     expect(library.data.value.watches).toHaveLength(1)
@@ -184,35 +169,37 @@ describe('useLibrary persistence', () => {
   })
 
   it('deletes an unmarked episode on the server', async () => {
-    useFixtureLibrary({ ...structuredClone(seeded), watches: [{ titleId: '5', episodeId: '5-1-1', watchedAt: '2026-02-01T10:00:00' }] })
+    const library = fixtureStore({ ...structuredClone(seeded), watches: [{ titleId: '5', episodeId: '5-1-1', watchedAt: '2026-02-01T10:00:00' }] })
     const bodies: unknown[] = []
     registerEndpoint('/api/library/watches/delete', { method: 'POST', once: true, handler: async (event) => {
       bodies.push(await readBody(event))
       return { removed: 1 }
     } })
 
-    useLibrary().unmarkEpisode('5-1-1')
+    library.unmarkEpisode('5-1-1')
 
     await vi.waitFor(() => expect(bodies).toHaveLength(1))
     expect((bodies[0] as { watches: unknown[] }).watches).toEqual([{ titleId: '5', episodeId: '5-1-1', watchedAt: new Date('2026-02-01T10:00:00').toISOString() }])
   })
 })
 
-describe('useLibrary time zones', () => {
+describe('library store time zones', () => {
   const movieLibrary: LibraryData = {
     titles: [{ id: '9', type: 'movie', name: 'Movie', firstAired: '2020-01-01', posterPath: '/p.jpg' }],
     episodes: [],
     watches: [{ titleId: '9', watchedAt: '2026-03-08T06:30:00.000Z' }]
   }
 
+  let library: ReturnType<typeof fixtureStore>
+
   beforeEach(() => {
-    useFixtureLibrary(structuredClone(movieLibrary))
+    library = fixtureStore(structuredClone(movieLibrary))
   })
 
   it('shows stored UTC watch times as wall-clock time in the viewer\'s zone', () => {
     useState('library-time-zone').value = 'Asia/Tokyo'
 
-    expect(useLibrary().data.value.watches[0]!.watchedAt).toBe('2026-03-08T15:30:00')
+    expect(library.data.value.watches[0]!.watchedAt).toBe('2026-03-08T15:30:00')
   })
 
   it('saves a watch entered as local time at the matching UTC instant', async () => {
@@ -223,7 +210,7 @@ describe('useLibrary time zones', () => {
       return { added: 1 }
     } })
 
-    useLibrary().addMovieWatch('9', '2026-03-09T21:00:00')
+    library.addMovieWatch('9', '2026-03-09T21:00:00')
 
     await vi.waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0]!.watches[0]!.watchedAt).toBe('2026-03-09T12:00:00.000Z')
@@ -231,7 +218,6 @@ describe('useLibrary time zones', () => {
 
   it('removes a watch picked by its local time', () => {
     useState('library-time-zone').value = 'Asia/Tokyo'
-    const library = useLibrary()
 
     expect(library.removeWatch('9', '2026-03-08T15:30:00')).toHaveLength(1)
     expect(library.data.value.watches).toEqual([])
@@ -239,11 +225,10 @@ describe('useLibrary time zones', () => {
 
   it('follows a change of day in shared state', () => {
     useState('library-today').value = '2026-03-02'
-    const library = useLibrary()
     useState('library-today').value = '2026-03-09'
 
     expect(library.today.value.getDate()).toBe(9)
-    expect(library.week.value.find(day => day.isToday)?.date).toBe('2026-03-09')
+    expect(weekOf(library.data.value, library.today.value).find(day => day.isToday)?.date).toBe('2026-03-09')
   })
 
   it('sends an undo only after the save it undoes has finished', async () => {
@@ -257,7 +242,6 @@ describe('useLibrary time zones', () => {
       calls.push('undo')
       return { removed: 1 }
     } })
-    const library = useLibrary()
 
     library.discardWatches([library.addMovieWatch('9', '2026-03-09T21:00:00')])
 

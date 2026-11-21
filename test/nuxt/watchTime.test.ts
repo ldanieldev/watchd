@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Episode, Title } from '~/utils/library/types'
-import { DEFAULT_RUNTIME_MINUTES, formatDuration, minutesForWatch } from '~/utils/library/watchTime'
+import type { Episode, Title } from '~~/shared/utils/library/types'
+import { DEFAULT_RUNTIME_MINUTES, formatDuration, minutesForWatch } from '~~/shared/utils/library/watchTime'
 import { withSnapshotDetails, withSnapshotEpisode } from '~~/test/fixtures/library'
 
 const movie: Title = { id: 'dune', type: 'movie', name: 'Dune', firstAired: '2021-09-15', posterPath: '/p.jpg', runtimeMinutes: 155 }

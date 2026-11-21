@@ -1,8 +1,10 @@
 import { and, eq, inArray } from 'drizzle-orm'
-import type { PersonDetail } from '~~/shared/types/library'
+import type { PersonDetail, PersonPage } from '~~/shared/types/library'
+import { personLibraryTitles } from '~~/shared/utils/library/views'
 import { titles } from '~~/server/db/schema'
 import { TmdbNotFoundError, tmdbGet } from '~~/server/utils/tmdb/client'
 import { mapPerson, pickCredits, type RawPersonDetail } from '~~/server/utils/tmdb/mapPerson'
+import { loadUserLibrary } from '~~/server/utils/library/loadUserLibrary'
 
 const fetchPerson = defineCachedFunction(
   async (personId: number): Promise<PersonDetail | null> => {
@@ -30,8 +32,8 @@ async function libraryCreditKeys(person: PersonDetail): Promise<Set<string>> {
   return keys
 }
 
-export default defineEventHandler(async (event): Promise<PersonDetail> => {
-  await requireUserSession(event)
+export default defineEventHandler(async (event): Promise<PersonPage> => {
+  const { user } = await requireUserSession(event)
 
   const personId = Number(getRouterParam(event, 'id'))
   if (!Number.isInteger(personId) || personId <= 0) throw createError({ statusCode: 400, statusMessage: 'Invalid person ID' })
@@ -39,6 +41,10 @@ export default defineEventHandler(async (event): Promise<PersonDetail> => {
   const person = await fetchPerson(personId)
   if (!person) throw createError({ statusCode: 404, statusMessage: 'Person not found' })
 
-  const inLibrary = await libraryCreditKeys(person)
-  return { ...person, credits: pickCredits(person.credits, credit => inLibrary.has(`${credit.mediaType}-${credit.tmdbId}`)) }
+  const [inLibrary, library] = await Promise.all([libraryCreditKeys(person), loadUserLibrary(user.id)])
+  return {
+    ...person,
+    credits: pickCredits(person.credits, credit => inLibrary.has(`${credit.mediaType}-${credit.tmdbId}`)),
+    libraryTitles: personLibraryTitles(library, person)
+  }
 })

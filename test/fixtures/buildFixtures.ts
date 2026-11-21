@@ -1,7 +1,7 @@
-import type { Episode, LibraryData, Title, WatchEvent } from '~/utils/library/types'
+import type { Episode, LibraryData, Title, WatchEvent } from '~~/shared/utils/library/types'
 import { catalog } from './catalog'
-import { isSpecial } from '~/utils/library/derive'
-import { addDays, toIsoDate } from '~/utils/library/dates'
+import { isSpecial } from '~~/shared/utils/library/derive'
+import { addDays, toIsoDate } from '~~/shared/utils/library/dates'
 
 interface AiringSeason {
   episodes: number

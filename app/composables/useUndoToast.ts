@@ -1,4 +1,4 @@
-import type { WatchEvent } from '~/utils/library/types'
+import type { WatchEvent } from '~~/shared/utils/library/types'
 
 export function useUndoToast() {
   const toast = useToast()

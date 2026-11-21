@@ -1,4 +1,4 @@
-import type { MediaType } from './types'
+import type { MediaType } from '~~/shared/utils/library/types'
 
 interface MediaTypeStyle {
   label: string

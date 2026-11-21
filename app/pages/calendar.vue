@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import type { MediaType, Release } from '~/utils/library/types'
-import { monthGrid, releasesBetween } from '~/utils/library/derive'
-import { addDays, parseIsoDate, toIsoDate } from '~/utils/library/dates'
+import type { MediaType, Release } from '~~/shared/utils/library/types'
+import { monthGrid } from '~~/shared/utils/library/derive'
+import { addDays, parseIsoDate, toIsoDate } from '~~/shared/utils/library/dates'
 
 useHead({ title: 'Calendar' })
 
 const AGENDA_DAYS = 60
 
-const { data, today } = useLibrary()
-const todayIso = computed(() => toIsoDate(today.value))
+const todayIso = useLibraryToday()
+const today = computed(() => parseIsoDate(todayIso.value))
 
 const visibleMonth = ref(new Date(today.value.getFullYear(), today.value.getMonth(), 1))
 const selectedDate = ref(todayIso.value)
@@ -38,14 +38,25 @@ function byDate(releases: Release[]) {
   return grouped
 }
 
-const monthReleases = computed(() => {
+const gridRange = computed(() => {
   const weeks = monthGrid(visibleMonth.value.getFullYear(), visibleMonth.value.getMonth())
-  return byDate(filtered(releasesBetween(data.value, weeks[0]![0]!.date, weeks.at(-1)!.at(-1)!.date)))
+  return { from: weeks[0]![0]!.date, to: weeks.at(-1)!.at(-1)!.date }
 })
 
-const selectedReleases = computed(() => filtered(releasesBetween(data.value, selectedDate.value, selectedDate.value)))
+// Shifting months keeps the selected day, which can leave it outside the grid, so the range stretches to cover it.
+const [{ data: shownReleases }, { data: agendaReleases }] = await Promise.all([
+  useLibraryView<Release[]>('/api/library/views/releases', () => ({
+    from: [gridRange.value.from, selectedDate.value].sort()[0]!,
+    to: [gridRange.value.to, selectedDate.value].sort()[1]!
+  })),
+  useLibraryView<Release[]>('/api/library/views/releases', () => ({ from: todayIso.value, to: toIsoDate(addDays(today.value, AGENDA_DAYS)) }))
+])
 
-const agenda = computed(() => [...byDate(filtered(releasesBetween(data.value, todayIso.value, toIsoDate(addDays(today.value, AGENDA_DAYS)))))])
+const monthReleases = computed(() => byDate(filtered((shownReleases.value ?? []).filter(release => release.date >= gridRange.value.from && release.date <= gridRange.value.to))))
+
+const selectedReleases = computed(() => filtered((shownReleases.value ?? []).filter(release => release.date === selectedDate.value)))
+
+const agenda = computed(() => [...byDate(filtered(agendaReleases.value ?? []))])
 
 function shiftMonth(delta: number) {
   visibleMonth.value = new Date(visibleMonth.value.getFullYear(), visibleMonth.value.getMonth() + delta, 1)

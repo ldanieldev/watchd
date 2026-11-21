@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { WeekDay } from '~/utils/library/types'
-import { episodeCode } from '~/utils/library/derive'
-import { parseIsoDate } from '~/utils/library/dates'
+import type { WeekDay } from '~~/shared/utils/library/types'
+import { episodeCode } from '~~/shared/utils/library/derive'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 import { tmdbImage } from '~/utils/library/tmdb'
 
 const props = defineProps<{
@@ -67,6 +67,8 @@ onMounted(() => {
           :class="release.watched ? 'text-muted line-through' : 'text-default'"
         >
           <img
+            width="92"
+            height="138"
             :src="tmdbImage(release.title.posterPath, 'w92')"
             alt=""
             loading="lazy"

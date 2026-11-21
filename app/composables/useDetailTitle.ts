@@ -1,11 +1,23 @@
 import type { TitleDetail } from '~~/shared/types/library'
+import type { LibraryData } from '~~/shared/utils/library/types'
 import { seasonPath, titlePath } from '~/utils/library/paths'
 
 export async function useDetailTitle(expectedType: 'episodic' | 'movie') {
+  const nuxtApp = useNuxtApp()
   const route = useRoute()
-  const { data, summaries } = useLibrary()
+  const titleId = String(route.params.id)
 
-  const initialTitle = data.value.titles.find(candidate => candidate.id === route.params.id)
+  const sliceRequest = useFetch<LibraryData>(`/api/library/views/title/${titleId}`, { key: `title-library-${titleId}`, default: emptyLibrary })
+  const detailRequest = useFetch<TitleDetail>(`/api/library/titles/${titleId}`, { key: `title-detail-${titleId}` })
+  const library = createLibraryStore(sliceRequest.data)
+  // provide() needs the component instance and navigateTo() the Nuxt context, and a nested composable loses both at its first await.
+  provideLibrary(library)
+  await Promise.all([sliceRequest, detailRequest])
+  const sliceStatus = sliceRequest.error.value?.statusCode
+  if (sliceStatus && sliceStatus !== 400 && sliceStatus !== 404) throw createError({ statusCode: sliceStatus, statusMessage: 'Couldn\'t load this title' })
+
+  const { data, summaries } = library
+  const initialTitle = data.value.titles.find(candidate => candidate.id === titleId)
   if (!initialTitle) throw createError({ statusCode: 404, statusMessage: 'Title not found' })
 
   const rawSeason = route.params.season
@@ -19,13 +31,12 @@ export async function useDetailTitle(expectedType: 'episodic' | 'movie') {
   const isCanonical = isExpectedType && isCanonicalSection
   if (!isCanonical) {
     const keepsSeason = isExpectedType && typeof rawSeason === 'string'
-    navigateTo(keepsSeason ? seasonPath(initialTitle, Number(rawSeason)) : titlePath(initialTitle), { redirectCode: 301, replace: true })
+    nuxtApp.runWithContext(() => navigateTo(keepsSeason ? seasonPath(initialTitle, Number(rawSeason)) : titlePath(initialTitle), { redirectCode: 301, replace: true }))
   }
 
-  const title = computed(() => data.value.titles.find(candidate => candidate.id === route.params.id) ?? initialTitle)
+  const title = computed(() => data.value.titles.find(candidate => candidate.id === titleId) ?? initialTitle)
   const summary = computed(() => summaries.value.find(candidate => candidate.title.id === title.value.id)!)
-  const { data: fetchedDetail } = await useFetch<TitleDetail>(() => `/api/library/titles/${initialTitle.id}`, { key: `title-detail-${initialTitle.id}` })
-  const detail = computed(() => fetchedDetail.value ?? undefined)
+  const detail = computed(() => detailRequest.data.value ?? undefined)
 
   const season = computed(() => (typeof rawSeason === 'string' ? Number(rawSeason) : undefined))
   return { title, summary, detail, season }

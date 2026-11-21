@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Title } from '~/utils/library/types'
+import type { Title } from '~~/shared/utils/library/types'
 import { titlePath } from '~/utils/library/paths'
 
 export interface ShelfItem {

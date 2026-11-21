@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { Title } from '~/utils/library/types'
-import type { EpisodeRange, TitleGaps } from '~/utils/library/detail'
-import { episodeCode } from '~/utils/library/derive'
-import { relativeDay } from '~/utils/library/dates'
+import type { Title } from '~~/shared/utils/library/types'
+import type { EpisodeRange, TitleGaps } from '~~/shared/utils/library/detail'
+import { episodeCode } from '~~/shared/utils/library/derive'
+import { relativeDay } from '~~/shared/utils/library/dates'
 import { seasonPath } from '~/utils/library/paths'
 
 const props = defineProps<{

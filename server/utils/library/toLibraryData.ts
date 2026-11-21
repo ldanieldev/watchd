@@ -1,5 +1,5 @@
 import type { CreditPerson } from '../../../shared/types/library'
-import type { Episode, LibraryData, Title, WatchEvent } from '../../../app/utils/library/types'
+import type { Episode, LibraryData, Title, WatchEvent } from '~~/shared/utils/library/types'
 import type { TitleKind } from '../../db/schema/library'
 
 export interface LibraryRows {

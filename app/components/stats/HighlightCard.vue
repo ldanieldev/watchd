@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { StatWatch } from '~/utils/library/stats'
-import { episodeCode } from '~/utils/library/derive'
-import { parseIsoDate } from '~/utils/library/dates'
+import type { StatWatch } from '~~/shared/utils/library/stats'
+import { episodeCode } from '~~/shared/utils/library/derive'
+import { parseIsoDate } from '~~/shared/utils/library/dates'
 import { titlePath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
 
@@ -25,7 +25,9 @@ const detail = computed(() => {
     <img
       :src="tmdbImage(image, 'w780')"
       alt=""
-      loading="lazy"
+      width="780"
+      height="439"
+      fetchpriority="high"
       class="absolute inset-0 -z-10 size-full object-cover transition group-hover:scale-105"
     >
     <div class="absolute inset-0 -z-10 bg-linear-to-t from-black/85 via-black/40 to-transparent" />

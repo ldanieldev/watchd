@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { msUntilNextMidnight } from '~/utils/library/dates'
+import { msUntilNextMidnight } from '~~/shared/utils/library/dates'
 
 describe('msUntilNextMidnight', () => {
   it('counts to the next local midnight', () => {

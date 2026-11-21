@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
-import { enableAutoUnmount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { UApp } from '#components'
 import StatsPage from '~/pages/stats.vue'
-import { statsWindow, statWatches, totals } from '~/utils/library/stats'
-import type { LibraryData } from '~/utils/library/types'
-import { useFixtureLibrary } from '~~/test/fixtures/library'
+import { statsView } from '~~/shared/utils/library/views'
+import type { LibraryData } from '~~/shared/utils/library/types'
+import { fixtureLibrary, useFixtureLibrary } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
@@ -20,9 +20,7 @@ describe('stats page', () => {
 
   it('leads with the hours and titles for the last 12 months', async () => {
     const today = new Date()
-    const fixtures = useState<LibraryData>('library').value
-    const window = statsWindow('12m', today, fixtures)
-    const expected = totals(statWatches(fixtures, 'all', window.from, window.to))
+    const expected = statsView(fixtureLibrary(today), '12m', 'all', today).total
 
     const wrapper = await mountSuspended(StatsInApp, { route: '/stats' })
 
@@ -41,7 +39,7 @@ describe('stats page', () => {
     const moviesTab = wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Movies')!
     await moviesTab.trigger('mousedown', { button: 0 })
     await moviesTab.trigger('focus')
-    await nextTick()
+    await flushPromises()
 
     expect(wrapper.find('h2').text()).toBe('0 hours across 0 titles')
     expect(wrapper.text()).toContain('Nothing here for this range')

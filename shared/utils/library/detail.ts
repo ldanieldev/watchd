@@ -1,5 +1,5 @@
 import type { Episode, LibraryData, Title, WatchEvent } from './types'
-import type { PersonDetail, SeasonDetail } from '~~/shared/types/library'
+import type { SeasonDetail } from '~~/shared/types/library'
 import { isSpecial } from './derive'
 
 export type EpisodeWatchState = 'watched' | 'missing' | 'upcoming'
@@ -153,13 +153,4 @@ export function collectionMembers(data: LibraryData, memberTmdbIds: number[], to
       const state: CollectionMemberState = watchedTitleIds.has(title.id) ? 'watched' : title.firstAired > todayIso ? 'unreleased' : 'unwatched'
       return { title, state }
     })
-}
-
-export function watchedTitlesForPerson(data: LibraryData, person: PersonDetail): Title[] {
-  const watchedTitleIds = new Set(data.watches.map(watch => watch.titleId))
-  return data.titles.filter((title) => {
-    if (title.tmdbId === undefined || !watchedTitleIds.has(title.id)) return false
-    const mediaType = title.type === 'movie' ? 'movie' : 'tv'
-    return person.credits.some(credit => credit.tmdbId === title.tmdbId && credit.mediaType === mediaType)
-  })
 }
