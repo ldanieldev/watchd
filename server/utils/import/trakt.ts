@@ -1,6 +1,7 @@
 import { strFromU8, unzipSync } from 'fflate'
 import { z } from 'zod'
-import { NotAnExportError, type ImportedPlay, type ParsedImport, type SkippedRow } from './types'
+import type { SkippedRow } from '../../../shared/types/library'
+import { NotAnExportError, type ImportedPlay, type ParsedImport } from './types'
 
 export interface UploadedFile {
   filename: string

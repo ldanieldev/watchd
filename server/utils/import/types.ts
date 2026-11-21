@@ -13,8 +13,6 @@ export interface ImportedPlay {
   runtimeMinutes?: number
 }
 
-export type { SkippedRow }
-
 export interface ParsedImport {
   plays: ImportedPlay[]
   skipped: SkippedRow[]

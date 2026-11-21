@@ -1,5 +1,6 @@
 import { parse } from 'csv-parse/sync'
-import { NotAnExportError, type ImportedPlay, type ParsedImport, type SkippedRow } from './types'
+import type { SkippedRow } from '../../../shared/types/library'
+import { NotAnExportError, type ImportedPlay, type ParsedImport } from './types'
 
 const REQUIRED_COLUMNS = ['row_type', 'media_id', 'media_type', 'title', 'end_date'] as const
 const OPTIONAL_COLUMNS = ['image', 'season_number', 'episode_number', 'runtime_minutes', 'release_datetime', 'series_name'] as const

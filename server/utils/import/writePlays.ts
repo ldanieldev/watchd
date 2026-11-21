@@ -5,8 +5,6 @@ import { watchedMinuteOf } from '../library/watchedMinute'
 import type { ImportSummary } from '../../../shared/types/library'
 import type { ImportedPlay, ParsedImport } from './types'
 
-export type { ImportSummary }
-
 export const TITLE_ENRICH_EVENT = 'library/title.enrich'
 
 const CHUNK_SIZE = 1000
