@@ -1,3 +1,4 @@
 export { appSchema } from '../shared'
 export * from './users'
 export * from './library'
+export * from './plex'

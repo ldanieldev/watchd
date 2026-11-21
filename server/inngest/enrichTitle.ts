@@ -42,6 +42,7 @@ async function writeTitle(titleId: number, mapped: MappedTitle): Promise<void> {
       titleId,
       season: episode.season,
       number: episode.number,
+      tmdbEpisodeId: episode.tmdbEpisodeId,
       airDate: episode.airDate ?? null,
       name: episode.name,
       overview: episode.overview ?? null,
@@ -51,6 +52,7 @@ async function writeTitle(titleId: number, mapped: MappedTitle): Promise<void> {
     await withQuerySpan('upsert-episodes', () => db.insert(episodes).values(batch).onConflictDoUpdate({
       target: [episodes.titleId, episodes.season, episodes.number],
       set: {
+        tmdbEpisodeId: sql`excluded.tmdb_episode_id`,
         airDate: sql`excluded.air_date`,
         name: sql`excluded.name`,
         overview: sql`excluded.overview`,

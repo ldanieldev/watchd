@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 
 interface SessionUser { id: number, email?: string, name?: string }
-interface SessionState { user?: SessionUser }
+interface SessionState { user?: SessionUser, secure?: Record<string, unknown>, id?: string }
 
 export interface QueuedResults {
   select?: unknown[][]
@@ -54,13 +54,19 @@ export function createServerHandlerHarness() {
   let session: SessionState = {}
 
   const selectColumns = vi.fn()
+  const selectWhere = vi.fn()
   const returningColumns = vi.fn()
   const insertValues = vi.fn(() => insertChain)
   const updateSet = vi.fn(() => updateChain)
   let deleteReturn: unknown[] = []
+  const deleteFrom = vi.fn()
   const deleteWhere = vi.fn(() => thenableChain(['returning'], () => Promise.resolve(deleteReturn)))
   const setUserSession = vi.fn(() => Promise.resolve())
   const clearUserSession = vi.fn(() => Promise.resolve())
+  const replaceUserSession = vi.fn((_event: unknown, data: SessionState) => {
+    session = data
+    return Promise.resolve(data)
+  })
 
   const insertChain = thenableChain(
     ['returning', 'onConflictDoNothing', 'onConflictDoUpdate'],
@@ -75,11 +81,15 @@ export function createServerHandlerHarness() {
     select: (columns?: unknown) => {
       selectColumns(columns)
       const rows = selectQueue.shift() ?? []
-      return thenableChain(['from', 'where', 'orderBy', 'limit'], () => Promise.resolve(rows))
+      return thenableChain(['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit'], () => Promise.resolve(rows), { where: selectWhere })
     },
     insert: () => ({ values: insertValues }),
     update: () => ({ set: updateSet }),
-    delete: () => ({ where: deleteWhere })
+    delete: (table: unknown) => {
+      deleteFrom(table)
+      return { where: deleteWhere }
+    },
+    transaction: (run: (tx: unknown) => Promise<unknown>) => run(db)
   }
 
   vi.stubGlobal('defineEventHandler', (fn: unknown) => fn)
@@ -102,9 +112,11 @@ export function createServerHandlerHarness() {
   vi.stubGlobal('getRequestWebStream', (event: HandlerEvent) => event.stream)
   vi.stubGlobal('getRequestHeader', (event: HandlerEvent, name: string) => event.headers?.[name.toLowerCase()])
   vi.stubGlobal('clearUserSession', clearUserSession)
+  vi.stubGlobal('replaceUserSession', replaceUserSession)
+  vi.stubGlobal('getRequestURL', () => new URL('https://watchd.test/api/x'))
 
   return {
-    mocks: { selectColumns, returningColumns, insertValues, updateSet, deleteWhere, setUserSession, clearUserSession },
+    mocks: { selectColumns, selectWhere, returningColumns, insertValues, updateSet, deleteWhere, deleteFrom, setUserSession, clearUserSession, replaceUserSession },
 
     givenDb({ select = [], insert = [], insertError: failure = null, update = [], delete: deleted = [] }: QueuedResults) {
       deleteReturn = deleted
@@ -117,6 +129,8 @@ export function createServerHandlerHarness() {
     setSession(next: SessionState) {
       session = next
     },
+
+    sessionNow: () => session,
 
     reset() {
       vi.clearAllMocks()

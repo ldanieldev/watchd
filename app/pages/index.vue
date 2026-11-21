@@ -55,6 +55,7 @@ async function onMarkWatched(summary: TitleSummary) {
     <h1 class="sr-only">
       Home
     </h1>
+    <MediaNowPlaying />
     <MediaHomeHero
       :up-next="upNext"
       :week="week"

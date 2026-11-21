@@ -1,14 +1,14 @@
-import { countDistinct, eq } from 'drizzle-orm'
-import { titles, watches } from '~~/server/db/schema'
+import { count } from 'drizzle-orm'
+import { titles } from '~~/server/db/schema'
+import { inUserLibrary } from '~~/server/utils/library/libraryTitleCondition'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
 
   const rows = await withQuerySpan('select-enrichment-status', () => db
-    .select({ state: titles.enrichmentState, count: countDistinct(titles.id) })
+    .select({ state: titles.enrichmentState, count: count() })
     .from(titles)
-    .innerJoin(watches, eq(watches.titleId, titles.id))
-    .where(eq(watches.userId, user.id))
+    .where(inUserLibrary(titles.id, user.id))
     .groupBy(titles.enrichmentState))
 
   const counts = { pending: 0, ready: 0, failed: 0 }

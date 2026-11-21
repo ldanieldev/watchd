@@ -1,0 +1,1 @@
+ALTER TABLE "app"."plex_items" ADD COLUMN "name" varchar(500);

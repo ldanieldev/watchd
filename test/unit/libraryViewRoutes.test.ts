@@ -8,13 +8,12 @@ vi.mock('~~/server/utils/library/loadUserLibrary', () => ({ loadUserLibrary }))
 const harness = createServerHandlerHarness()
 
 type Handler = (e: unknown) => Promise<unknown>
-const route = async (path: string) => (await import(`~~/server/api/library/views/${path}`)).default as Handler
-const home = await route('home.get')
-const summaries = await route('summaries.get')
-const releases = await route('releases.get')
-const history = await route('history.get')
-const stats = await route('stats.get')
-const title = await route('title/[id].get')
+const home = (await import('~~/server/api/library/views/home.get')).default as Handler
+const summaries = (await import('~~/server/api/library/views/summaries.get')).default as Handler
+const releases = (await import('~~/server/api/library/views/releases.get')).default as Handler
+const history = (await import('~~/server/api/library/views/history.get')).default as Handler
+const stats = (await import('~~/server/api/library/views/stats.get')).default as Handler
+const title = (await import('~~/server/api/library/views/title/[id].get')).default as Handler
 
 const library: LibraryData = {
   titles: [

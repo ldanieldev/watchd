@@ -70,6 +70,7 @@ export interface RawSeason {
   poster_path: string | null
   overview: string
   episodes: {
+    id: number
     episode_number: number
     name: string
     overview: string
@@ -93,7 +94,7 @@ export interface MappedTitle {
   crew: CreditPerson[]
   detail: TitleExtra
   tmdbStatus: string
-  episodes: EpisodeDetail[]
+  episodes: (EpisodeDetail & { tmdbEpisodeId: number })[]
 }
 
 const ANIMATION_GENRE_ID = 16
@@ -183,6 +184,7 @@ export function mapTv(raw: RawTv, seasons: RawSeason[]): MappedTitle {
     episodes: seasons.flatMap(season => season.episodes.map(episode => ({
       season: season.season_number,
       number: episode.episode_number,
+      tmdbEpisodeId: episode.id,
       name: episode.name,
       airDate: optional(episode.air_date),
       overview: optional(episode.overview),

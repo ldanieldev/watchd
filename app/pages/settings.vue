@@ -9,7 +9,8 @@ const links = [[
   },
   {
     label: 'Integrations',
-    icon: 'i-lucide-blocks'
+    icon: 'i-lucide-blocks',
+    to: '/settings/integrations'
   },
   {
     label: 'Import Data',

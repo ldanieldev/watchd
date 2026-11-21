@@ -16,10 +16,10 @@ const rawShow: RawTv = {
 }
 
 const seasons: RawSeason[] = [
-  { season_number: 0, name: 'Specials', poster_path: null, overview: '', episodes: [{ episode_number: 1, name: 'Recap', overview: '', still_path: null, runtime: null, air_date: null }] },
+  { season_number: 0, name: 'Specials', poster_path: null, overview: '', episodes: [{ id: 63055, episode_number: 1, name: 'Recap', overview: '', still_path: null, runtime: null, air_date: null }] },
   { season_number: 1, name: 'Season 1', poster_path: '/s1.jpg', overview: 'First.', episodes: [
-    { episode_number: 1, name: 'The Journey\'s End', overview: 'It ends.', still_path: '/e1.jpg', runtime: 25, air_date: '2023-09-29' },
-    { episode_number: 2, name: 'It Didn\'t Have to Be Magic', overview: '', still_path: null, runtime: 24, air_date: '2023-09-29' }
+    { id: 63056, episode_number: 1, name: 'The Journey\'s End', overview: 'It ends.', still_path: '/e1.jpg', runtime: 25, air_date: '2023-09-29' },
+    { id: 63057, episode_number: 2, name: 'It Didn\'t Have to Be Magic', overview: '', still_path: null, runtime: 24, air_date: '2023-09-29' }
   ] }
 ]
 
@@ -44,6 +44,10 @@ describe('mapTv', () => {
 
     expect(mapped.episodes.map(episode => [episode.season, episode.number, episode.airDate])).toEqual([[0, 1, undefined], [1, 1, '2023-09-29'], [1, 2, '2023-09-29']])
     expect(mapped.detail.seasons.map(season => season.season)).toEqual([0, 1])
+  })
+
+  it('keeps each episode\'s TMDB id', () => {
+    expect(mapTv(rawShow, seasons).episodes.map(episode => episode.tmdbEpisodeId)).toEqual([63055, 63056, 63057])
   })
 
   it('flags a Japanese animated series as anime and maps its summary fields', () => {

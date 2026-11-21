@@ -87,6 +87,10 @@ export default defineNuxtConfig({
       apiKey: ''
     },
     tmdbApiKey: '',
+    plex: {
+      syncMode: 'off',
+      clientIdentifier: ''
+    },
     public: {
       appName: process.env.APP_NAME || 'Watchd',
       sentry: {

@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { titles, watches, type TitleKind, type WatchSource } from '../../db/schema'
 import { inngest } from '../inngest/client'
 import { watchedMinuteOf } from '../library/watchedMinute'
@@ -10,16 +10,18 @@ export const TITLE_ENRICH_EVENT = 'library/title.enrich'
 const CHUNK_SIZE = 1000
 const STALE_PENDING_MS = 10 * 60 * 1000
 
-function chunks<T>(items: T[], size = CHUNK_SIZE): T[][] {
+export function chunkForPostgresParameters<T>(items: T[], size = CHUNK_SIZE): T[][] {
   const result: T[][] = []
   for (let start = 0; start < items.length; start += size) result.push(items.slice(start, start + size))
   return result
 }
 
-const titleKey = (kind: TitleKind, tmdbId: number) => `${kind}-${tmdbId}`
+export const titleKey = (kind: TitleKind, tmdbId: number) => `${kind}-${tmdbId}`
+
+export type TitleStub = typeof titles.$inferInsert
 
 function stubTitles(plays: ImportedPlay[]) {
-  const byKey = new Map<string, typeof titles.$inferInsert>()
+  const byKey = new Map<string, TitleStub>()
   for (const play of plays) {
     const key = titleKey(play.kind, play.tmdbId)
     const existing = byKey.get(key)
@@ -35,13 +37,13 @@ function stubTitles(plays: ImportedPlay[]) {
   return [...byKey.values()]
 }
 
-async function titleIdsFor(stubs: typeof titles.$inferInsert[]) {
+async function titleIdsFor(stubs: TitleStub[]) {
   const ids = new Map<string, number>()
   const stalePendingIds: number[] = []
   const staleBefore = Date.now() - STALE_PENDING_MS
   for (const kind of ['movie', 'tv'] as const) {
     const tmdbIds = stubs.filter(stub => stub.kind === kind).map(stub => stub.tmdbId)
-    for (const batch of chunks(tmdbIds)) {
+    for (const batch of chunkForPostgresParameters(tmdbIds)) {
       const rows = await withQuerySpan('select-import-titles', () => db
         .select({ id: titles.id, tmdbId: titles.tmdbId, state: titles.enrichmentState, updatedAt: titles.updatedAt })
         .from(titles)
@@ -56,15 +58,15 @@ async function titleIdsFor(stubs: typeof titles.$inferInsert[]) {
 }
 
 export async function queueEnrichment(titleIds: number[]): Promise<void> {
-  for (const batch of chunks(titleIds, 500)) {
+  for (const batch of chunkForPostgresParameters(titleIds, 500)) {
     await inngest.send(batch.map(titleId => ({ name: TITLE_ENRICH_EVENT, data: { titleId } })))
   }
 }
 
-export async function importPlays(userId: number, parsed: ParsedImport, source: WatchSource): Promise<ImportSummary> {
-  const stubs = stubTitles(parsed.plays)
+/** Title ids by `titleKey`, creating missing stubs. Queuing is left to the caller: enrichment remaps the title's stored watches, so it must run after they are written. */
+export async function ensureTitles(stubs: TitleStub[]): Promise<{ titleIdsByKey: Map<string, number>, createdTitleIds: number[], titleIdsToEnrich: number[] }> {
   const createdTitleIds: number[] = []
-  for (const batch of chunks(stubs)) {
+  for (const batch of chunkForPostgresParameters(stubs)) {
     const created = await withQuerySpan('insert-import-titles', () => db
       .insert(titles)
       .values(batch)
@@ -73,6 +75,11 @@ export async function importPlays(userId: number, parsed: ParsedImport, source: 
     createdTitleIds.push(...created.map(row => row.id))
   }
   const { ids, stalePendingIds } = await titleIdsFor(stubs)
+  return { titleIdsByKey: ids, createdTitleIds, titleIdsToEnrich: [...new Set([...createdTitleIds, ...stalePendingIds])] }
+}
+
+export async function importPlays(userId: number, parsed: ParsedImport, source: WatchSource): Promise<ImportSummary> {
+  const { titleIdsByKey: ids, titleIdsToEnrich } = await ensureTitles(stubTitles(parsed.plays))
 
   const rows = parsed.plays.map(play => ({
     userId,
@@ -84,15 +91,14 @@ export async function importPlays(userId: number, parsed: ParsedImport, source: 
     source
   }))
   let added = 0
-  for (const batch of chunks(rows)) {
+  for (const batch of chunkForPostgresParameters(rows)) {
     const inserted = await withQuerySpan('insert-import-watches', () => db.insert(watches).values(batch).onConflictDoNothing().returning({ id: watches.id }))
     added += inserted.length
   }
 
-  const toEnrich = [...new Set([...createdTitleIds, ...stalePendingIds])]
-  await queueEnrichment(toEnrich)
+  await queueEnrichment(titleIdsToEnrich)
 
-  return { added, duplicates: rows.length - added, skipped: parsed.skipped, titlesQueued: toEnrich.length }
+  return { added, duplicates: rows.length - added, skipped: parsed.skipped, titlesQueued: titleIdsToEnrich.length }
 }
 
 export async function failedTitleIdsFor(userId: number): Promise<number[]> {
@@ -100,12 +106,12 @@ export async function failedTitleIdsFor(userId: number): Promise<number[]> {
     .selectDistinct({ id: titles.id })
     .from(titles)
     .innerJoin(watches, eq(watches.titleId, titles.id))
-    .where(and(eq(watches.userId, userId), eq(titles.enrichmentState, 'failed'))))
+    .where(and(eq(watches.userId, userId), isNull(watches.deletedAt), eq(titles.enrichmentState, 'failed'))))
   return rows.map(row => row.id)
 }
 
 export async function resetFailedTitles(titleIds: number[]): Promise<void> {
-  for (const batch of chunks(titleIds)) {
+  for (const batch of chunkForPostgresParameters(titleIds)) {
     await withQuerySpan('reset-failed-titles', () => db
       .update(titles)
       .set({ enrichmentState: 'pending', enrichmentError: null, enrichedAt: null })

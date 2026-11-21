@@ -194,7 +194,7 @@ export function monthGrid(year: number, monthIndex: number): { date: string, inM
   return weeks
 }
 
-export function episodeCode(title: Title, episode: Episode): string {
+export function episodeCode(title: Pick<Title, 'type'>, episode: Pick<Episode, 'season' | 'number'>): string {
   if (title.type === 'anime' && episode.season === 1) return `E${episode.number}`
   return `S${episode.season}E${episode.number}`
 }

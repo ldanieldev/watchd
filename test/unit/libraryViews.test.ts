@@ -61,6 +61,14 @@ describe('summariesView', () => {
     expect(view.map(summary => summary.title.id)).toEqual(['movie', 'sequel'])
     view.forEach(summary => expectSlim(summary.title))
   })
+
+  it('shows a title with no watches, such as one only in Plex, as planned', () => {
+    const plexOnly: Title = { id: 'plex-only', type: 'movie', name: 'Plex Only', tmdbId: 12, firstAired: '2020-01-01', posterPath: '/p.jpg', runtimeMinutes: 90 }
+    const view = summariesView({ ...library, titles: [...library.titles, plexOnly] }, 'movie', today)
+
+    expect(view.find(summary => summary.title.id === 'plex-only')?.status).toBe('planned')
+    expect(view.find(summary => summary.title.id === 'movie')?.status).toBe('completed')
+  })
 })
 
 describe('releasesView', () => {
