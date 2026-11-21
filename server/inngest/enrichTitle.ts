@@ -1,9 +1,10 @@
 import { NonRetriableError } from 'inngest'
-import { eq, sql } from 'drizzle-orm'
-import { episodes, titles } from '../db/schema'
+import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { episodes, titles, watches } from '../db/schema'
 import { inngest } from '../utils/inngest/client'
 import { TITLE_ENRICH_EVENT } from '../utils/import/writePlays'
 import { TmdbNotFoundError, tmdbGet } from '../utils/tmdb/client'
+import { absoluteEpisodeRemaps } from '../utils/tmdb/absoluteEpisodes'
 import { mapMovie, mapTv, type MappedTitle, type RawMovie, type RawSeason, type RawTv } from '../utils/tmdb/mapTitle'
 
 const EPISODE_CHUNK_SIZE = 500
@@ -61,6 +62,24 @@ async function writeTitle(titleId: number, mapped: MappedTitle): Promise<void> {
   }
 }
 
+async function remapAbsoluteEpisodeWatches(titleId: number, mappedEpisodes: MappedTitle['episodes']): Promise<void> {
+  const plays = await withQuerySpan('select-watched-episodes', () => db
+    .selectDistinct({ season: watches.season, number: watches.number })
+    .from(watches)
+    .where(and(eq(watches.titleId, titleId), isNotNull(watches.season), isNotNull(watches.number))))
+  const remaps = absoluteEpisodeRemaps(mappedEpisodes, plays as { season: number, number: number }[])
+  for (const { from, to } of remaps) {
+    // A watch already on the target episode at the same minute would break watches_dedup, so those are left behind and deleted as duplicates.
+    await withQuerySpan('remap-absolute-episode-watches', () => db.execute(sql`
+      update ${watches} w set season = ${to.season}, number = ${to.number}
+      where w.title_id = ${titleId} and w.season = ${from.season} and w.number = ${from.number}
+        and not exists (select 1 from ${watches} d where d.user_id = w.user_id and d.title_id = w.title_id
+          and d.season = ${to.season} and d.number = ${to.number} and d.watched_minute = w.watched_minute)`))
+    await withQuerySpan('delete-duplicate-remapped-watches', () => db.execute(sql`
+      delete from ${watches} where title_id = ${titleId} and season = ${from.season} and number = ${from.number}`))
+  }
+}
+
 async function markFailed(titleId: number, message: string): Promise<void> {
   await withQuerySpan('mark-title-failed', () => db.update(titles)
     .set({ enrichmentState: 'failed', enrichmentError: message.slice(0, 1000) })
@@ -101,6 +120,7 @@ export const enrichTitle = inngest.createFunction(
         throw error
       }
       await writeTitle(titleId, mapped)
+      if (title.kind === 'tv') await remapAbsoluteEpisodeWatches(titleId, mapped.episodes)
       return { titleId, episodes: mapped.episodes.length }
     })
   }
