@@ -34,6 +34,7 @@ const links = [[
       :items="links"
       highlight
       class="px-4 flex-1"
+      :ui="{ root: 'overflow-x-auto [&>div]:min-w-max', list: 'min-w-max', item: 'shrink-0' }"
     />
     <USeparator />
     <main class="page-shell">
