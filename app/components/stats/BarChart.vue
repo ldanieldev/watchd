@@ -29,13 +29,14 @@ const max = computed(() => Math.max(0, ...props.bars.map(bar => bar.value)))
         <div
           class="group flex h-full min-w-0 flex-1 cursor-default items-end"
           tabindex="0"
+          role="img"
           :aria-label="`${bar.label}: ${bar.tooltip}`"
         >
           <div
             data-bar
             class="mx-auto w-full max-w-8 rounded-t-sm transition-opacity group-hover:opacity-75 group-focus-visible:opacity-75"
             :class="barClass"
-            :style="{ height: `${(bar.value / max) * 100}%` }"
+            :style="{ height: cssPercent((bar.value / max) * 100) }"
           />
         </div>
       </UTooltip>

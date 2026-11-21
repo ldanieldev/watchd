@@ -44,7 +44,9 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   <UPageCard
     title="Profile Information"
   >
+    <!-- A field named "name" shadows form.name, so without this the unset name hydrates to the string "undefined". -->
     <UForm
+      name="profile-information"
       :schema="schema"
       :state="state"
       class="flex flex-col gap-4 max-w-xs"

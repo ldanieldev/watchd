@@ -22,6 +22,8 @@ const max = computed(() => Math.max(0, ...props.rows.map(row => row.value)))
     >
       <span class="text-right tabular-nums text-muted">{{ index + 1 }}</span>
       <img
+        width="32"
+        height="32"
         v-if="row.image"
         :src="row.image"
         alt=""
@@ -49,7 +51,7 @@ const max = computed(() => Math.max(0, ...props.rows.map(row => row.value)))
           <span
             class="block h-full rounded-full"
             :class="barClass"
-            :style="{ width: `${max ? (row.value / max) * 100 : 0}%` }"
+            :style="{ width: cssPercent(max ? (row.value / max) * 100 : 0) }"
           />
         </span>
       </span>
