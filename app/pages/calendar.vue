@@ -8,10 +8,10 @@ useHead({ title: 'Calendar' })
 const AGENDA_DAYS = 60
 
 const { data, today } = useLibrary()
-const todayIso = toIsoDate(today)
+const todayIso = computed(() => toIsoDate(today.value))
 
-const visibleMonth = ref(new Date(today.getFullYear(), today.getMonth(), 1))
-const selectedDate = ref(todayIso)
+const visibleMonth = ref(new Date(today.value.getFullYear(), today.value.getMonth(), 1))
+const selectedDate = ref(todayIso.value)
 const typeFilter = ref<MediaType | 'all'>('all')
 const view = ref<'month' | 'agenda'>('month')
 
@@ -45,19 +45,19 @@ const monthReleases = computed(() => {
 
 const selectedReleases = computed(() => filtered(releasesBetween(data.value, selectedDate.value, selectedDate.value)))
 
-const agenda = computed(() => [...byDate(filtered(releasesBetween(data.value, todayIso, toIsoDate(addDays(today, AGENDA_DAYS)))))])
+const agenda = computed(() => [...byDate(filtered(releasesBetween(data.value, todayIso.value, toIsoDate(addDays(today.value, AGENDA_DAYS)))))])
 
 function shiftMonth(delta: number) {
   visibleMonth.value = new Date(visibleMonth.value.getFullYear(), visibleMonth.value.getMonth() + delta, 1)
 }
 
 function goToToday() {
-  visibleMonth.value = new Date(today.getFullYear(), today.getMonth(), 1)
-  selectedDate.value = todayIso
+  visibleMonth.value = new Date(today.value.getFullYear(), today.value.getMonth(), 1)
+  selectedDate.value = todayIso.value
 }
 
 function longDate(date: string) {
-  return date === todayIso
+  return date === todayIso.value
     ? `Today, ${parseIsoDate(date).toLocaleString('en', { month: 'long', day: 'numeric' })}`
     : parseIsoDate(date).toLocaleString('en', { weekday: 'long', month: 'long', day: 'numeric' })
 }

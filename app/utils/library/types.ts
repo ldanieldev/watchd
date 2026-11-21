@@ -1,3 +1,5 @@
+import type { CreditPerson } from '~~/shared/types/library'
+
 export type MediaType = 'movie' | 'tv' | 'anime'
 
 export type TitleStatus = 'watching' | 'completed' | 'planned' | 'paused' | 'dropped'
@@ -12,6 +14,11 @@ export interface Title {
   backdropPath?: string
   runtimeMinutes?: number
   heldStatus?: 'paused' | 'dropped'
+  genres?: string[]
+  studios?: string[]
+  network?: string
+  cast?: CreditPerson[]
+  crew?: CreditPerson[]
 }
 
 export interface Episode {
@@ -20,6 +27,8 @@ export interface Episode {
   season: number
   number: number
   airDate: string
+  name?: string
+  runtimeMinutes?: number
 }
 
 export interface WatchEvent {

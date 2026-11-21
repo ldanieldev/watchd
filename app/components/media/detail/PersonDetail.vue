@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PersonDetail as PersonDetailData } from '~/utils/library/details'
+import type { PersonDetail as PersonDetailData } from '~~/shared/types/library'
 import type { ShelfItem } from '~/components/media/PosterShelf.vue'
 import { watchedTitlesForPerson } from '~/utils/library/detail'
 import { parseIsoDate } from '~/utils/library/dates'

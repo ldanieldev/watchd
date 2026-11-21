@@ -3,14 +3,14 @@ import { ref } from 'vue'
 import { enableAutoUnmount } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import ShowPage from '~/pages/tv/[id]/index.vue'
-import { buildFixtures } from '~/utils/library/fixtures'
+import { fixtureLibrary, useFixtureLibrary } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
 
 describe('show detail page', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
+    useFixtureLibrary()
   })
 
   it('lists the mid-series gap with a link to its season page', async () => {
@@ -32,12 +32,12 @@ describe('show detail page', () => {
   })
 
   it('renders a title without snapshot details and no cast or crew shelves', async () => {
-    const fixtures = buildFixtures(new Date())
-    useState('library', () => ({
+    const fixtures = fixtureLibrary()
+    useFixtureLibrary({
       ...fixtures,
       titles: [...fixtures.titles, { id: 'no-details-show', type: 'tv', name: 'No Details Show', firstAired: '2020-01-01', posterPath: '/p.jpg' }],
       episodes: [...fixtures.episodes, { id: 'no-details-show-1-1', titleId: 'no-details-show', season: 1, number: 1, airDate: '2020-01-01' }]
-    }))
+    })
     const wrapper = await mountSuspended(ShowPage, { route: '/tv/no-details-show' })
 
     expect(wrapper.find('h1').text()).toBe('No Details Show')

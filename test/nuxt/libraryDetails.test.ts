@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import detailsJson from '~/utils/library/details.json'
-import { detailsSnapshotSchema, episodeDetailFor, titleDetailFor } from '~/utils/library/details'
-import { catalog } from '~/utils/library/catalog'
+import { catalog } from '~~/test/fixtures/catalog'
+import { snapshot, snapshotDetail as titleDetailFor } from '~~/test/fixtures/library'
 
-describe('library details snapshot', () => {
-  it('the snapshot matches its schema', () => {
-    expect(() => detailsSnapshotSchema.parse(detailsJson)).not.toThrow()
-  })
+const episodeDetailFor = (titleId: string, season: number, number: number) =>
+  titleDetailFor(titleId)?.episodes.find(episode => episode.season === season && episode.number === number)
 
+describe('test TMDB snapshot', () => {
   it('has snapshot details for every catalog title', () => {
     expect(catalog.filter(entry => !titleDetailFor(entry.id)).map(entry => entry.id)).toEqual([])
   })
@@ -18,7 +16,6 @@ describe('library details snapshot', () => {
   })
 
   it('every snapshot title is a catalog entry with the same tmdbId', () => {
-    const snapshot = detailsSnapshotSchema.parse(detailsJson)
     expect(snapshot.titles.length).toBeGreaterThan(0)
     for (const detail of snapshot.titles) {
       const entry = catalog.find(candidate => candidate.id === detail.titleId)
@@ -44,7 +41,6 @@ describe('library details snapshot', () => {
   })
 
   it('every featured title appears in the filmography of each of its cast and crew', () => {
-    const snapshot = detailsSnapshotSchema.parse(detailsJson)
     for (const detail of snapshot.titles) {
       const entry = catalog.find(candidate => candidate.id === detail.titleId)!
       const mediaType = entry.type === 'movie' ? 'movie' : 'tv'

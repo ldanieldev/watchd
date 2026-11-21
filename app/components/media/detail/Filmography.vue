@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { FilmographyCredit } from '~/utils/library/details'
+import type { FilmographyCredit } from '~~/shared/types/library'
 import type { Title } from '~/utils/library/types'
 import { titlePath } from '~/utils/library/paths'
 import { tmdbPageUrl } from '~/utils/library/tmdb'

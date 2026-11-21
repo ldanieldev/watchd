@@ -7,6 +7,8 @@ import { recordQueryDuration } from './metrics'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  // Plain timestamp columns hold UTC, so now() and timestamptz output must not follow the server's TimeZone.
+  options: '-c TimeZone=UTC',
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000

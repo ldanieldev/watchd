@@ -86,6 +86,7 @@ export default defineNuxtConfig({
       host: '',
       apiKey: ''
     },
+    tmdbApiKey: '',
     public: {
       appName: process.env.APP_NAME || 'Watchd',
       sentry: {

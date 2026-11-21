@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import type { Title } from '~/utils/library/types'
 import { seasonEpisodeRows, seasonName, seasonSummaries } from '~/utils/library/detail'
-import { episodeDetailFor, titleDetailFor } from '~/utils/library/details'
+import type { TitleDetail } from '~~/shared/types/library'
 import { episodeCode } from '~/utils/library/derive'
 import { toIsoDate } from '~/utils/library/dates'
 import { seasonPath, titlePath } from '~/utils/library/paths'
 
-const props = defineProps<{ title: Title, season: number }>()
+const props = defineProps<{ title: Title, season: number, detail?: TitleDetail }>()
 
 const { data, today, markWatched, markThrough, markSeason, unmarkEpisode, restoreWatches } = useLibrary()
 const { showUndoToast, announceMarked } = useUndoToast()
-const todayIso = toIsoDate(today)
+const todayIso = computed(() => toIsoDate(today.value))
 
-const detail = computed(() => titleDetailFor(props.title.id))
-const rows = computed(() => seasonEpisodeRows(data.value, props.title.id, props.season, todayIso))
-const summaries = computed(() => seasonSummaries(data.value, props.title.id, todayIso))
+const detail = computed(() => props.detail)
+const rows = computed(() => seasonEpisodeRows(data.value, props.title.id, props.season, todayIso.value))
+const summaries = computed(() => seasonSummaries(data.value, props.title.id, todayIso.value))
 const summary = computed(() => summaries.value.find(candidate => candidate.season === props.season))
 
 const episodeBatchSize = 50
@@ -56,7 +56,7 @@ const progressLabel = computed(() => {
 })
 
 function episodeDetailOf(season: number, number: number) {
-  return episodeDetailFor(props.title.id, season, number)
+  return props.detail?.episodes.find(episode => episode.season === season && episode.number === number)
 }
 
 function onMarkSeason() {

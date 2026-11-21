@@ -3,6 +3,7 @@ import { nextTick, ref } from 'vue'
 import { enableAutoUnmount } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import SeasonPage from '~/pages/tv/[id]/season/[season].vue'
+import { useFixtureLibrary } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
@@ -17,7 +18,7 @@ function buttonLabelled(row: ReturnType<typeof rowFor>, label: string) {
 
 describe('season detail page', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
+    useFixtureLibrary()
   })
 
   it('offers mark on a missing episode and unmark on a watched one', async () => {

@@ -25,8 +25,8 @@ const recentItems = computed<ShelfItem[]>(() => recent.value.map(entry => ({
   key: `${entry.title.id}-${entry.watchedAt}`,
   title: entry.title,
   caption: entry.episode
-    ? `${episodeCode(entry.title, entry.episode)}, ${relativeDay(entry.watchedAt, today)}`
-    : relativeDay(entry.watchedAt, today)
+    ? `${episodeCode(entry.title, entry.episode)}, ${relativeDay(entry.watchedAt, today.value)}`
+    : relativeDay(entry.watchedAt, today.value)
 })))
 
 function onMarkWatched(summary: TitleSummary) {

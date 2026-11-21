@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { enableAutoUnmount } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import PersonPage from '~/pages/people/[id].vue'
+import { useFixtureLibrary } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
@@ -20,7 +21,7 @@ function layoutBiography(scrollHeight: number, clientHeight: number) {
 
 describe('person detail page', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
+    useFixtureLibrary()
     layoutBiography(400, 120)
   })
 

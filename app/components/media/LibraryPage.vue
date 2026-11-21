@@ -52,8 +52,8 @@ const tabs = computed(() => statusTabs[props.type].map(tab => ({
 const groups = computed(() => {
   const visible = activeStatus.value === 'all' ? ofType.value : ofType.value.filter(summary => summary.status === activeStatus.value)
   if (sortKey.value === 'title') return groupByLetter(visible, summary => summary.title.name)
-  if (sortKey.value === 'releaseDate') return groupByPeriod(visible, summary => summary.title.firstAired, today)
-  return groupByPeriod(visible, summary => summary.lastWatchedAt, today)
+  if (sortKey.value === 'releaseDate') return groupByPeriod(visible, summary => summary.title.firstAired, today.value)
+  return groupByPeriod(visible, summary => summary.lastWatchedAt, today.value)
 })
 
 function caption(summary: TitleSummary) {

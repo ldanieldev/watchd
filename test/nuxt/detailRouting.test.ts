@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { personPath, seasonPath, titlePath } from '~/utils/library/paths'
 import { useDetailTitle } from '~/composables/useDetailTitle'
+import { useFixtureLibrary } from '~~/test/fixtures/library'
 
 describe('path helpers', () => {
   it('builds the detail paths', () => {
@@ -19,14 +20,18 @@ mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 
 function probe(expectedType: 'episodic' | 'movie') {
   return defineComponent({
-    setup() {
-      const { title, season } = useDetailTitle(expectedType)
+    async setup() {
+      const { title, season } = await useDetailTitle(expectedType)
       return () => h('p', `${title.value.name}|${season.value ?? 'none'}`)
     }
   })
 }
 
 describe('useDetailTitle', () => {
+  beforeEach(() => {
+    useFixtureLibrary()
+  })
+
   it('renders a known title with no season', async () => {
     const wrapper = await mountSuspended(probe('episodic'), { route: '/tv/tulsa-king' })
     expect(wrapper.text()).toBe('Tulsa King|none')

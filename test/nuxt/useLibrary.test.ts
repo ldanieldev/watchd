@@ -1,11 +1,16 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { useLibrary } from '~/composables/useLibrary'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createError, readBody } from 'h3'
+import { registerEndpoint } from '@nuxt/test-utils/runtime'
+import { loadLibrary, useLibrary, whenLibrarySaved } from '~/composables/useLibrary'
 import type { LibraryData } from '~/utils/library/types'
 import { recentlyWatched } from '~/utils/library/derive'
+import { useFixtureLibrary } from '~~/test/fixtures/library'
+
+afterEach(() => whenLibrarySaved())
 
 describe('useLibrary', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
+    useFixtureLibrary()
   })
 
   it('marking the up-next episode lowers its new count and tops recently watched', () => {
@@ -126,5 +131,136 @@ describe('useLibrary', () => {
     const library = seedLibrary()
 
     expect(library.markThrough('s', 'missing')).toEqual([])
+  })
+})
+
+describe('useLibrary persistence', () => {
+  const seeded: LibraryData = {
+    titles: [{ id: '5', type: 'tv', name: 'Show', firstAired: '2026-01-01', posterPath: '/p.jpg' }],
+    episodes: [1, 2].map(number => ({ id: `5-1-${number}`, titleId: '5', season: 1, number, airDate: '2026-01-01' })),
+    watches: []
+  }
+
+  beforeEach(() => {
+    useFixtureLibrary({ titles: [], episodes: [], watches: [] })
+  })
+
+  it('loadLibrary fills the library from the server', async () => {
+    registerEndpoint('/api/library', { handler: () => seeded, once: true })
+
+    await loadLibrary()
+
+    expect(useLibrary().data.value.titles.map(title => title.id)).toEqual(['5'])
+  })
+
+  it('posts a marked episode with an absolute watch time', async () => {
+    useFixtureLibrary(structuredClone(seeded))
+    const bodies: unknown[] = []
+    registerEndpoint('/api/library/watches', { method: 'POST', once: true, handler: async (event) => {
+      bodies.push(await readBody(event))
+      return { added: 1 }
+    } })
+    const library = useLibrary()
+
+    library.markWatched('5', '5-1-1')
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+
+    const [watch] = (bodies[0] as { watches: { titleId: string, episodeId: string, watchedAt: string }[] }).watches
+    expect(watch).toMatchObject({ titleId: '5', episodeId: '5-1-1' })
+    expect(watch!.watchedAt).toMatch(/Z$/)
+  })
+
+  it('puts the library back when saving a mark fails', async () => {
+    useFixtureLibrary(structuredClone(seeded))
+    registerEndpoint('/api/library/watches', { method: 'POST', once: true, handler: () => {
+      throw createError({ statusCode: 500, statusMessage: 'boom' })
+    } })
+    const library = useLibrary()
+
+    library.markWatched('5', '5-1-1')
+    expect(library.data.value.watches).toHaveLength(1)
+
+    await vi.waitFor(() => expect(library.data.value.watches).toHaveLength(0))
+  })
+
+  it('deletes an unmarked episode on the server', async () => {
+    useFixtureLibrary({ ...structuredClone(seeded), watches: [{ titleId: '5', episodeId: '5-1-1', watchedAt: '2026-02-01T10:00:00' }] })
+    const bodies: unknown[] = []
+    registerEndpoint('/api/library/watches/delete', { method: 'POST', once: true, handler: async (event) => {
+      bodies.push(await readBody(event))
+      return { removed: 1 }
+    } })
+
+    useLibrary().unmarkEpisode('5-1-1')
+
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    expect((bodies[0] as { watches: unknown[] }).watches).toEqual([{ titleId: '5', episodeId: '5-1-1', watchedAt: new Date('2026-02-01T10:00:00').toISOString() }])
+  })
+})
+
+describe('useLibrary time zones', () => {
+  const movieLibrary: LibraryData = {
+    titles: [{ id: '9', type: 'movie', name: 'Movie', firstAired: '2020-01-01', posterPath: '/p.jpg' }],
+    episodes: [],
+    watches: [{ titleId: '9', watchedAt: '2026-03-08T06:30:00.000Z' }]
+  }
+
+  beforeEach(() => {
+    useFixtureLibrary(structuredClone(movieLibrary))
+  })
+
+  it('shows stored UTC watch times as wall-clock time in the viewer\'s zone', () => {
+    useState('library-time-zone').value = 'Asia/Tokyo'
+
+    expect(useLibrary().data.value.watches[0]!.watchedAt).toBe('2026-03-08T15:30:00')
+  })
+
+  it('saves a watch entered as local time at the matching UTC instant', async () => {
+    useState('library-time-zone').value = 'Asia/Tokyo'
+    const bodies: { watches: { watchedAt: string }[] }[] = []
+    registerEndpoint('/api/library/watches', { method: 'POST', once: true, handler: async (event) => {
+      bodies.push(await readBody(event))
+      return { added: 1 }
+    } })
+
+    useLibrary().addMovieWatch('9', '2026-03-09T21:00:00')
+
+    await vi.waitFor(() => expect(bodies).toHaveLength(1))
+    expect(bodies[0]!.watches[0]!.watchedAt).toBe('2026-03-09T12:00:00.000Z')
+  })
+
+  it('removes a watch picked by its local time', () => {
+    useState('library-time-zone').value = 'Asia/Tokyo'
+    const library = useLibrary()
+
+    expect(library.removeWatch('9', '2026-03-08T15:30:00')).toHaveLength(1)
+    expect(library.data.value.watches).toEqual([])
+  })
+
+  it('follows a change of day in shared state', () => {
+    useState('library-today').value = '2026-03-02'
+    const library = useLibrary()
+    useState('library-today').value = '2026-03-09'
+
+    expect(library.today.value.getDate()).toBe(9)
+    expect(library.week.value.find(day => day.isToday)?.date).toBe('2026-03-09')
+  })
+
+  it('sends an undo only after the save it undoes has finished', async () => {
+    const calls: string[] = []
+    registerEndpoint('/api/library/watches', { method: 'POST', once: true, handler: async () => {
+      await new Promise(resolve => setTimeout(resolve, 50))
+      calls.push('save')
+      return { added: 1 }
+    } })
+    registerEndpoint('/api/library/watches/delete', { method: 'POST', once: true, handler: () => {
+      calls.push('undo')
+      return { removed: 1 }
+    } })
+    const library = useLibrary()
+
+    library.discardWatches([library.addMovieWatch('9', '2026-03-09T21:00:00')])
+
+    await vi.waitFor(() => expect(calls).toEqual(['save', 'undo']))
   })
 })

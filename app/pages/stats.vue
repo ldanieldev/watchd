@@ -68,15 +68,15 @@ const ROLE_SHELVES: { role: CreditRole, heading: string }[] = [
   { role: 'writer', heading: 'Writers' }
 ]
 
-const window = computed(() => statsWindow(range.value, today, data.value))
+const window = computed(() => statsWindow(range.value, today.value, data.value))
 const watches = computed(() => statWatches(data.value, typeFilter.value, window.value.from, window.value.to))
 const previousWatches = computed(() => statWatches(data.value, typeFilter.value, window.value.previousFrom, window.value.previousTo))
 
 const total = computed(() => totals(watches.value))
 const previousTotal = computed(() => totals(previousWatches.value))
 const timeDelta = computed(() => (compare.value ? changePercent(total.value.minutes, previousTotal.value.minutes) : undefined))
-const found = computed(() => highlights(data.value, watches.value, today))
-const streak = computed(() => streaks(watches.value, today))
+const found = computed(() => highlights(data.value, watches.value, today.value))
+const streak = computed(() => streaks(watches.value, today.value))
 const busiest = computed(() => mostActiveWeekday(watches.value))
 const completion = computed(() => completedOfStarted(summaries.value, typeFilter.value))
 const average = computed(() => averages(watches.value, window.value))

@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { personDetailFor } from '~/utils/library/details'
+import type { PersonDetail } from '~~/shared/types/library'
 
 const route = useRoute()
-const person = personDetailFor(Number(route.params.id))
-if (!person) throw createError({ statusCode: 404, statusMessage: 'Person not found' })
-useHead({ title: person.name })
+const { data: person } = await useFetch<PersonDetail>(() => `/api/people/${route.params.id}`, { key: `person-${route.params.id}` })
+if (!person.value) throw createError({ statusCode: 404, statusMessage: 'Person not found' })
+useHead({ title: () => person.value?.name ?? 'Person' })
 </script>
 
 <template>
-  <MediaDetailPersonDetail :person="person" />
+  <MediaDetailPersonDetail
+    v-if="person"
+    :person="person"
+  />
 </template>

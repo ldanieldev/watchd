@@ -27,3 +27,7 @@ export function relativeDay(isoDateTime: string, now: Date): string {
   if (days === 0) return 'today'
   return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-days, 'day')
 }
+
+export function msUntilNextMidnight(now: Date): number {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime()
+}

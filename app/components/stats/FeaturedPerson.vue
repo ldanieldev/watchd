@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { featuredPerson } from '~/utils/library/stats'
-import { personDetailFor } from '~/utils/library/details'
+import type { PersonDetail } from '~~/shared/types/library'
 import { personPath, titlePath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
 
@@ -8,7 +8,8 @@ const props = defineProps<{
   featured: NonNullable<ReturnType<typeof featuredPerson>>
 }>()
 
-const knownFor = computed(() => personDetailFor(props.featured.person.personId)?.knownFor)
+const { data: person } = useLazyFetch<PersonDetail>(() => `/api/people/${props.featured.person.personId}`)
+const knownFor = computed(() => person.value?.knownFor)
 const ringLength = computed(() => props.featured.playShare * 2 * Math.PI * 40)
 </script>
 

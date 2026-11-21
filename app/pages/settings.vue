@@ -13,7 +13,8 @@ const links = [[
   },
   {
     label: 'Import Data',
-    icon: 'i-lucide-file-up'
+    icon: 'i-lucide-file-up',
+    to: '/settings/import'
   },
   {
     label: 'Export Data',

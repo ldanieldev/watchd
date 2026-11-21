@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Title } from '~/utils/library/types'
 import type { SeasonSummary } from '~/utils/library/detail'
-import type { SeasonDetail } from '~/utils/library/details'
+import type { SeasonDetail } from '~~/shared/types/library'
 import { seasonName } from '~/utils/library/detail'
 import { seasonPath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'

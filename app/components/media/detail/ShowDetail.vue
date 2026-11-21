@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { Title, TitleSummary } from '~/utils/library/types'
-import type { TitleDetail } from '~/utils/library/details'
+import type { TitleDetail } from '~~/shared/types/library'
 import type { Fact } from './FactsList.vue'
 import { seasonName, seasonSummaries, titleGaps } from '~/utils/library/detail'
 import { isSpecial } from '~/utils/library/derive'
 import { relativeDay, toIsoDate } from '~/utils/library/dates'
 import { mediaTypeStyles } from '~/utils/library/mediaTypes'
+import { titlePath } from '~/utils/library/paths'
 
 const props = defineProps<{
   title: Title
@@ -13,18 +14,18 @@ const props = defineProps<{
   detail?: TitleDetail
 }>()
 
-const { data, today, markSeason } = useLibrary()
+const { data, today, markSeason, setTitleType } = useLibrary()
 const { announceMarked } = useUndoToast()
-const todayIso = toIsoDate(today)
+const todayIso = computed(() => toIsoDate(today.value))
 
-const gaps = computed(() => titleGaps(data.value, props.title.id, todayIso))
-const seasons = computed(() => seasonSummaries(data.value, props.title.id, todayIso))
+const gaps = computed(() => titleGaps(data.value, props.title.id, todayIso.value))
+const seasons = computed(() => seasonSummaries(data.value, props.title.id, todayIso.value))
 const regularEpisodes = computed(() => data.value.episodes.filter(episode => episode.titleId === props.title.id && !isSpecial(episode)))
 
 const yearRange = computed(() => {
   const startYear = props.title.firstAired.slice(0, 4)
   const lastAirDate = regularEpisodes.value.map(episode => episode.airDate).sort().at(-1)
-  const isStillAiring = lastAirDate === undefined || lastAirDate > todayIso || props.detail?.status === 'Returning Series'
+  const isStillAiring = lastAirDate === undefined || lastAirDate > todayIso.value || props.detail?.status === 'Returning Series'
   if (isStillAiring) return `${startYear}–`
   const endYear = lastAirDate.slice(0, 4)
   return endYear === startYear ? startYear : `${startYear}–${endYear}`
@@ -33,7 +34,7 @@ const yearRange = computed(() => {
 const progressLine = computed(() => {
   const { watchedCount, totalCount, lastWatchedAt } = props.summary
   const watchedPart = `${watchedCount} of ${totalCount} watched`
-  return watchedCount > 0 && lastWatchedAt ? `${watchedPart} · last watched ${relativeDay(lastWatchedAt, today)}` : watchedPart
+  return watchedCount > 0 && lastWatchedAt ? `${watchedPart} · last watched ${relativeDay(lastWatchedAt, today.value)}` : watchedPart
 })
 
 const typicalRuntimeMinutes = computed(() => {
@@ -61,6 +62,24 @@ const facts = computed<Fact[]>(() => {
   ]
 })
 
+const showApiError = useApiErrorToast()
+const isMovingType = ref(false)
+const otherType = computed(() => (props.title.type === 'anime' ? 'tv' : 'anime'))
+
+async function onMoveType() {
+  const typeOverride = otherType.value
+  isMovingType.value = true
+  try {
+    await $fetch(`/api/library/titles/${props.title.id}/settings`, { method: 'PUT', body: { typeOverride } })
+    setTitleType(props.title.id, typeOverride)
+    await navigateTo(titlePath({ id: props.title.id, type: typeOverride }), { replace: true })
+  } catch (error) {
+    showApiError(error, `Couldn't move ${props.title.name}`, 'Try again in a moment.')
+  } finally {
+    isMovingType.value = false
+  }
+}
+
 function onMarkSeason(season: number) {
   announceMarked(`Marked ${seasonName(season, props.detail?.seasons)} watched`, markSeason(props.title.id, season))
 }
@@ -75,6 +94,15 @@ function onMarkSeason(season: number) {
             <MediaTypeTag :type="title.type" />
             <span class="tabular-nums">{{ yearRange }}</span>
             <span v-if="detail">{{ detail.status }}</span>
+            <UButton
+              size="xs"
+              variant="link"
+              color="neutral"
+              :loading="isMovingType"
+              @click="onMoveType"
+            >
+              Move to {{ mediaTypeStyles[otherType].label }}
+            </UButton>
           </p>
           <p class="text-base font-medium text-highlighted tabular-nums">
             {{ progressLine }}

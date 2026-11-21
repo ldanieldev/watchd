@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildFixtures } from '~/utils/library/fixtures'
+import { buildFixtures } from '~~/test/fixtures/buildFixtures'
 
 function countBy<T>(items: T[], keyOf: (item: T) => string): Map<string, number> {
   const counts = new Map<string, number>()

@@ -2,7 +2,6 @@
 import type { HistoryEntry, TypeFilter } from '~/utils/library/types'
 import { historyMonth, latestMonthWithWatches } from '~/utils/library/history'
 import { episodeCode } from '~/utils/library/derive'
-import { episodeDetailFor } from '~/utils/library/details'
 import { parseIsoDate } from '~/utils/library/dates'
 import { seasonPath, titlePath } from '~/utils/library/paths'
 import { formatDuration } from '~/utils/library/watchTime'
@@ -20,7 +19,7 @@ const typeTabs = [
 ]
 
 const latest = computed(() => latestMonthWithWatches(data.value, typeFilter.value))
-const startMonth = latest.value ?? { year: today.getFullYear(), monthIndex: today.getMonth() }
+const startMonth = latest.value ?? { year: today.value.getFullYear(), monthIndex: today.value.getMonth() }
 const visibleMonth = ref(new Date(startMonth.year, startMonth.monthIndex, 1))
 
 const days = computed(() => historyMonth(data.value, visibleMonth.value.getFullYear(), visibleMonth.value.getMonth(), typeFilter.value))
@@ -46,7 +45,7 @@ function dayHeading(date: string) {
 
 function caption(entry: HistoryEntry) {
   if (!entry.episode) return entry.title.name
-  return episodeDetailFor(entry.title.id, entry.episode.season, entry.episode.number)?.name ?? episodeCode(entry.title, entry.episode)
+  return entry.episode.name ?? episodeCode(entry.title, entry.episode)
 }
 
 function entryPath(entry: HistoryEntry) {

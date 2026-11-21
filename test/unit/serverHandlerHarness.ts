@@ -8,11 +8,16 @@ export interface QueuedResults {
   insert?: unknown[]
   insertError?: unknown
   update?: unknown[]
+  delete?: unknown[]
 }
+
+export interface MultipartPart { name?: string, filename?: string, data: Uint8Array }
 
 export interface HandlerEvent {
   body?: unknown
   params?: Record<string, string>
+  multipart?: MultipartPart[]
+  headers?: Record<string, string>
 }
 
 type Settle<T> = <R1 = T, R2 = never>(
@@ -49,12 +54,13 @@ export function createServerHandlerHarness() {
   const returningColumns = vi.fn()
   const insertValues = vi.fn(() => insertChain)
   const updateSet = vi.fn(() => updateChain)
-  const deleteWhere = vi.fn(() => Promise.resolve())
+  let deleteReturn: unknown[] = []
+  const deleteWhere = vi.fn(() => thenableChain(['returning'], () => Promise.resolve(deleteReturn)))
   const setUserSession = vi.fn(() => Promise.resolve())
   const clearUserSession = vi.fn(() => Promise.resolve())
 
   const insertChain = thenableChain(
-    ['returning'],
+    ['returning', 'onConflictDoNothing', 'onConflictDoUpdate'],
     () => insertError ? Promise.reject(insertError) : Promise.resolve(insertReturn),
     { returning: returningColumns })
   const updateChain = thenableChain(
@@ -84,12 +90,18 @@ export function createServerHandlerHarness() {
   vi.stubGlobal('verifyPassword', (hash: string, plain: string) => Promise.resolve(hash === `scrypt:${plain}`))
   vi.stubGlobal('setUserSession', setUserSession)
   vi.stubGlobal('getUserSession', () => Promise.resolve(session))
+  vi.stubGlobal('requireUserSession', () => session.user
+    ? Promise.resolve(session)
+    : Promise.reject(Object.assign(new Error('Unauthorized'), { statusCode: 401 })))
+  vi.stubGlobal('readMultipartFormData', (event: HandlerEvent) => Promise.resolve(event.multipart))
+  vi.stubGlobal('getRequestHeader', (event: HandlerEvent, name: string) => event.headers?.[name.toLowerCase()])
   vi.stubGlobal('clearUserSession', clearUserSession)
 
   return {
     mocks: { selectColumns, returningColumns, insertValues, updateSet, deleteWhere, setUserSession, clearUserSession },
 
-    givenDb({ select = [], insert = [], insertError: failure = null, update = [] }: QueuedResults) {
+    givenDb({ select = [], insert = [], insertError: failure = null, update = [], delete: deleted = [] }: QueuedResults) {
+      deleteReturn = deleted
       selectQueue = [...select]
       insertReturn = insert
       insertError = failure
@@ -106,6 +118,7 @@ export function createServerHandlerHarness() {
       insertReturn = []
       insertError = null
       updateReturn = []
+      deleteReturn = []
       session = {}
     }
   }

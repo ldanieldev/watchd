@@ -3,14 +3,14 @@ import { ref } from 'vue'
 import { enableAutoUnmount } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import MoviePage from '~/pages/movies/[id].vue'
-import { buildFixtures } from '~/utils/library/fixtures'
+import { fixtureLibrary, useFixtureLibrary } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
 
 describe('movie detail page', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
+    useFixtureLibrary()
   })
 
   it('calls out the unwatched film in a partly watched collection', async () => {
@@ -50,11 +50,11 @@ describe('movie detail page', () => {
   })
 
   it('shows an unwatched movie without snapshot details and no empty headings', async () => {
-    const fixtures = buildFixtures(new Date())
-    useState('library', () => ({
+    const fixtures = fixtureLibrary()
+    useFixtureLibrary({
       ...fixtures,
       titles: [...fixtures.titles, { id: 'no-details-movie', type: 'movie', name: 'No Details Movie', firstAired: '2020-01-01', posterPath: '/p.jpg', runtimeMinutes: 100 }]
-    }))
+    })
     const wrapper = await mountSuspended(MoviePage, { route: '/movies/no-details-movie' })
 
     expect(wrapper.text()).toContain('Not watched')

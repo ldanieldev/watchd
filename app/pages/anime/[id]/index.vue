@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { title, summary, detail } = useDetailTitle('episodic')
+const { title, summary, detail } = await useDetailTitle('episodic')
 useHead({ title: () => title.value.name })
 </script>
 

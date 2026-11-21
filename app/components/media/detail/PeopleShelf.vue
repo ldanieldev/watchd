@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { CreditPerson } from '~/utils/library/details'
-import { personDetailFor } from '~/utils/library/details'
+import type { CreditPerson } from '~~/shared/types/library'
 import { personPath } from '~/utils/library/paths'
 import { tmdbImage } from '~/utils/library/tmdb'
 
@@ -10,7 +9,6 @@ withDefaults(defineProps<{
   headingTag?: 'h2' | 'h3'
 }>(), { headingTag: 'h2' })
 
-const NuxtLinkComponent = resolveComponent('NuxtLink')
 const failedProfilePersonIds = ref(new Set<number>())
 
 function initialsOf(name: string) {
@@ -44,9 +42,8 @@ function hasProfileImage(person: CreditPerson) {
         :key="`${person.personId}-${person.role}`"
         class="w-28 shrink-0 snap-start sm:w-32"
       >
-        <component
-          :is="personDetailFor(person.personId) ? NuxtLinkComponent : 'div'"
-          :to="personDetailFor(person.personId) ? personPath(person.personId) : undefined"
+        <NuxtLink
+          :to="personPath(person.personId)"
           :title="person.role ? `${person.name} · ${person.role}` : person.name"
           class="group block rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
@@ -70,16 +67,13 @@ function hasProfileImage(person: CreditPerson) {
               {{ initialsOf(person.name) }}
             </span>
           </div>
-          <p
-            class="mt-2 line-clamp-2 text-sm font-medium text-highlighted"
-            :class="{ 'group-hover:text-primary': personDetailFor(person.personId) }"
-          >
+          <p class="mt-2 line-clamp-2 text-sm font-medium text-highlighted group-hover:text-primary">
             {{ person.name }}
           </p>
           <p class="mt-0.5 line-clamp-2 text-xs text-muted">
             {{ person.role }}
           </p>
-        </component>
+        </NuxtLink>
       </li>
     </ul>
   </section>

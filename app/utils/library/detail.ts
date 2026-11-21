@@ -1,5 +1,5 @@
 import type { Episode, LibraryData, Title, WatchEvent } from './types'
-import type { PersonDetail, SeasonDetail } from './details'
+import type { PersonDetail, SeasonDetail } from '~~/shared/types/library'
 import { isSpecial } from './derive'
 
 export type EpisodeWatchState = 'watched' | 'missing' | 'upcoming'

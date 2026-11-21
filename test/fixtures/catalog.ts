@@ -1,4 +1,4 @@
-import type { MediaType } from './types'
+import type { MediaType } from '~/utils/library/types'
 
 export interface CatalogEntry {
   id: string

@@ -25,6 +25,7 @@ import {
   streaks,
   totals
 } from '~/utils/library/stats'
+import { withSnapshotDetails } from '~~/test/fixtures/library'
 
 const today = new Date(2026, 10, 20)
 const show: Title = { id: 'show', type: 'tv', name: 'Show', firstAired: '2020-01-01', posterPath: '/p.jpg' }
@@ -167,7 +168,7 @@ describe('library panels', () => {
     { id: 'not-in-snapshot', type: 'movie', name: 'Unknown', firstAired: '1995-01-01', posterPath: '/p.jpg', runtimeMinutes: 90 }
   ]
   const library: LibraryData = {
-    titles: films,
+    titles: films.map(withSnapshotDetails),
     episodes: [],
     watches: [
       { titleId: 'dune', watchedAt: '2026-11-01T21:00:00' },

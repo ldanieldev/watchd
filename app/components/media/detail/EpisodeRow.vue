@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Title } from '~/utils/library/types'
 import type { EpisodeRow } from '~/utils/library/detail'
-import type { EpisodeDetail } from '~/utils/library/details'
+import type { EpisodeDetail } from '~~/shared/types/library'
 import { episodeCode } from '~/utils/library/derive'
 import { parseIsoDate, relativeDay } from '~/utils/library/dates'
 import { tmdbImage } from '~/utils/library/tmdb'

@@ -1,7 +1,7 @@
-import { titleDetailFor } from '~/utils/library/details'
+import type { TitleDetail } from '~~/shared/types/library'
 import { seasonPath, titlePath } from '~/utils/library/paths'
 
-export function useDetailTitle(expectedType: 'episodic' | 'movie') {
+export async function useDetailTitle(expectedType: 'episodic' | 'movie') {
   const route = useRoute()
   const { data, summaries } = useLibrary()
 
@@ -24,7 +24,8 @@ export function useDetailTitle(expectedType: 'episodic' | 'movie') {
 
   const title = computed(() => data.value.titles.find(candidate => candidate.id === route.params.id) ?? initialTitle)
   const summary = computed(() => summaries.value.find(candidate => candidate.title.id === title.value.id)!)
-  const detail = computed(() => titleDetailFor(title.value.id))
+  const { data: fetchedDetail } = await useFetch<TitleDetail>(() => `/api/library/titles/${initialTitle.id}`, { key: `title-detail-${initialTitle.id}` })
+  const detail = computed(() => fetchedDetail.value ?? undefined)
 
   const season = computed(() => (typeof rawSeason === 'string' ? Number(rawSeason) : undefined))
   return { title, summary, detail, season }

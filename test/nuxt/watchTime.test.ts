@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Episode, Title } from '~/utils/library/types'
 import { DEFAULT_RUNTIME_MINUTES, formatDuration, minutesForWatch } from '~/utils/library/watchTime'
+import { withSnapshotDetails, withSnapshotEpisode } from '~~/test/fixtures/library'
 
 const movie: Title = { id: 'dune', type: 'movie', name: 'Dune', firstAired: '2021-09-15', posterPath: '/p.jpg', runtimeMinutes: 155 }
-const tulsaKing: Title = { id: 'tulsa-king', type: 'tv', name: 'Tulsa King', firstAired: '2022-11-13', posterPath: '/p.jpg' }
-const onePiece: Title = { id: 'one-piece', type: 'anime', name: 'One Piece', firstAired: '1999-10-20', posterPath: '/p.jpg' }
+const tulsaKing: Title = withSnapshotDetails({ id: 'tulsa-king', type: 'tv', name: 'Tulsa King', firstAired: '2022-11-13', posterPath: '/p.jpg' })
+const onePiece: Title = withSnapshotDetails({ id: 'one-piece', type: 'anime', name: 'One Piece', firstAired: '1999-10-20', posterPath: '/p.jpg' })
 
 function episode(titleId: string, season: number, number: number): Episode {
-  return { id: `${titleId}-${season}-${number}`, titleId, season, number, airDate: '2020-01-01' }
+  return withSnapshotEpisode({ id: `${titleId}-${season}-${number}`, titleId, season, number, airDate: '2020-01-01' })
 }
 
 describe('minutesForWatch', () => {
@@ -19,7 +20,7 @@ describe('minutesForWatch', () => {
     expect(minutesForWatch({ titleId: 'dune', watchedAt: '2026-11-01T21:00:00' }, movie)).toBe(155)
   })
 
-  it('uses the episode runtime from the snapshot', () => {
+  it('uses the episode runtime', () => {
     const pilot = episode('tulsa-king', 1, 1)
     expect(minutesForWatch({ titleId: 'tulsa-king', episodeId: pilot.id, watchedAt: '2026-11-01T21:00:00' }, tulsaKing, pilot)).toBe(42)
   })
@@ -29,7 +30,7 @@ describe('minutesForWatch', () => {
     expect(minutesForWatch({ titleId: 'one-piece', episodeId: later.id, watchedAt: '2026-11-01T21:00:00' }, onePiece, later)).toBe(24)
   })
 
-  it('falls back to the type default for a title outside the snapshot', () => {
+  it('falls back to the type default for a title with no runtime', () => {
     const unknown: Title = { id: 'not-in-snapshot', type: 'anime', name: 'Unknown', firstAired: '2020-01-01', posterPath: '/p.jpg' }
     expect(minutesForWatch({ titleId: unknown.id, watchedAt: '2026-11-01T21:00:00' }, unknown)).toBe(DEFAULT_RUNTIME_MINUTES.anime)
   })

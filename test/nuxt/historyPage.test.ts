@@ -4,16 +4,17 @@ import { enableAutoUnmount } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import HistoryPage from '~/pages/history.vue'
 import type { LibraryData } from '~/utils/library/types'
+import { useFixtureLibrary, withSnapshotDetails, withSnapshotEpisode } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
 
 const library: LibraryData = {
   titles: [
-    { id: 'tulsa-king', type: 'tv', name: 'Tulsa King', firstAired: '2022-11-13', posterPath: '/p.jpg' },
+    withSnapshotDetails({ id: 'tulsa-king', type: 'tv', name: 'Tulsa King', firstAired: '2022-11-13', posterPath: '/p.jpg' }),
     { id: 'dune', type: 'movie', name: 'Dune', firstAired: '2021-09-15', posterPath: '/p.jpg', runtimeMinutes: 155 }
   ],
-  episodes: [{ id: 'tulsa-king-1-1', titleId: 'tulsa-king', season: 1, number: 1, airDate: '2022-11-13' }],
+  episodes: [withSnapshotEpisode({ id: 'tulsa-king-1-1', titleId: 'tulsa-king', season: 1, number: 1, airDate: '2022-11-13' })],
   watches: [
     { titleId: 'tulsa-king', episodeId: 'tulsa-king-1-1', watchedAt: '2026-03-02T21:00:00' },
     { titleId: 'dune', watchedAt: '2026-03-02T19:00:00' }
@@ -22,8 +23,7 @@ const library: LibraryData = {
 
 describe('history page', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
-    useState('library', () => library)
+    useFixtureLibrary(library)
   })
 
   it('opens on the latest month with watches and totals each day', async () => {

@@ -1,0 +1,621 @@
+{
+  "id": "3cb90923-9ef5-44fa-ab13-8d7d3017f648",
+  "prevId": "4ca84b2a-67f1-41ab-8b8d-a174d7faf929",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "app.users": {
+      "name": "users",
+      "schema": "app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "users_id_seq",
+            "schema": "app",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "password": {
+          "name": "password",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "app.episodes": {
+      "name": "episodes",
+      "schema": "app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "episodes_id_seq",
+            "schema": "app",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "title_id": {
+          "name": "title_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "season": {
+          "name": "season",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "air_date": {
+          "name": "air_date",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "overview": {
+          "name": "overview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "still_path": {
+          "name": "still_path",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "runtime_minutes": {
+          "name": "runtime_minutes",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "episodes_title_id_titles_id_fk": {
+          "name": "episodes_title_id_titles_id_fk",
+          "tableFrom": "episodes",
+          "tableTo": "titles",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "title_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "episodes_title_season_number_unique": {
+          "name": "episodes_title_season_number_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "title_id",
+            "season",
+            "number"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "app.titles": {
+      "name": "titles",
+      "schema": "app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "titles_id_seq",
+            "schema": "app",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tmdb_id": {
+          "name": "tmdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_aired": {
+          "name": "first_aired",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "poster_path": {
+          "name": "poster_path",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "backdrop_path": {
+          "name": "backdrop_path",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "runtime_minutes": {
+          "name": "runtime_minutes",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_anime": {
+          "name": "is_anime",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "genres": {
+          "name": "genres",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "studios": {
+          "name": "studios",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cast": {
+          "name": "cast",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "crew": {
+          "name": "crew",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "detail": {
+          "name": "detail",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tmdb_status": {
+          "name": "tmdb_status",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enrichment_state": {
+          "name": "enrichment_state",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "enriched_at": {
+          "name": "enriched_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enrichment_error": {
+          "name": "enrichment_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "titles_kind_tmdb_unique": {
+          "name": "titles_kind_tmdb_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "kind",
+            "tmdb_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "app.user_titles": {
+      "name": "user_titles",
+      "schema": "app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "user_titles_id_seq",
+            "schema": "app",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_id": {
+          "name": "title_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type_override": {
+          "name": "type_override",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "held_status": {
+          "name": "held_status",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_titles_user_id_users_id_fk": {
+          "name": "user_titles_user_id_users_id_fk",
+          "tableFrom": "user_titles",
+          "tableTo": "users",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "user_titles_title_id_titles_id_fk": {
+          "name": "user_titles_title_id_titles_id_fk",
+          "tableFrom": "user_titles",
+          "tableTo": "titles",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "title_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "user_titles_user_title_unique": {
+          "name": "user_titles_user_title_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "title_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "app.watches": {
+      "name": "watches",
+      "schema": "app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "watches_id_seq",
+            "schema": "app",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_id": {
+          "name": "title_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "season": {
+          "name": "season",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "number": {
+          "name": "number",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "watched_at": {
+          "name": "watched_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "watched_minute": {
+          "name": "watched_minute",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "minutes_watched": {
+          "name": "minutes_watched",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "watches_user_id_users_id_fk": {
+          "name": "watches_user_id_users_id_fk",
+          "tableFrom": "watches",
+          "tableTo": "users",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "watches_title_id_titles_id_fk": {
+          "name": "watches_title_id_titles_id_fk",
+          "tableFrom": "watches",
+          "tableTo": "titles",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "title_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "watches_dedup": {
+          "name": "watches_dedup",
+          "nullsNotDistinct": true,
+          "columns": [
+            "user_id",
+            "title_id",
+            "season",
+            "number",
+            "watched_minute"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "app": "app"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

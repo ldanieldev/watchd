@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { toZonedTimestamp } from '~~/shared/utils/zonedTime'
 import type { Title, TitleSummary } from '~/utils/library/types'
-import type { TitleDetail } from '~/utils/library/details'
+import type { TitleDetail } from '~~/shared/types/library'
 import type { Fact } from './FactsList.vue'
 import { collectionMembers, movieWatches } from '~/utils/library/detail'
 import { parseIsoDate, toIsoDate } from '~/utils/library/dates'
@@ -13,12 +14,13 @@ const props = defineProps<{
 }>()
 
 const { data, today, addMovieWatch, removeWatch, restoreWatches } = useLibrary()
+const timeZone = useLibraryTimeZone()
 const { showUndoToast } = useUndoToast()
-const todayIso = toIsoDate(today)
+const todayIso = computed(() => toIsoDate(today.value))
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 const watches = computed(() => movieWatches(data.value, props.title.id))
-const members = computed(() => props.detail?.collection ? collectionMembers(data.value, props.detail.collection.memberTmdbIds, todayIso) : [])
+const members = computed(() => props.detail?.collection ? collectionMembers(data.value, props.detail.collection.memberTmdbIds, todayIso.value) : [])
 
 const watchSummary = computed(() => {
   const { timesWatched, lastWatchedAt, minutesLeft } = props.summary
@@ -52,7 +54,7 @@ const facts = computed<Fact[]>(() => {
 })
 
 function onAddWatch(dateIso: string) {
-  const watchedAt = `${dateIso}T${new Date().toTimeString().slice(0, 8)}`
+  const watchedAt = `${dateIso}T${toZonedTimestamp(new Date(), timeZone.value).slice(11)}`
   addMovieWatch(props.title.id, watchedAt)
   showUndoToast(`Added watch on ${dateFormatter.format(parseIsoDate(dateIso))}`, () => removeWatch(props.title.id, watchedAt), { icon: 'i-lucide-check' })
 }

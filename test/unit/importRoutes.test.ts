@@ -1,0 +1,82 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { strToU8 } from 'fflate'
+import { createServerHandlerHarness, event, type MultipartPart } from './serverHandlerHarness'
+
+const importPlays = vi.fn()
+vi.mock('~~/server/utils/import/writePlays', () => ({ importPlays }))
+vi.mock('~~/server/utils/inngest/client', () => ({ inngest: { send: vi.fn() } }))
+
+const harness = createServerHandlerHarness()
+
+type Handler = (e: unknown) => Promise<unknown>
+const runImport = (await import('~~/server/api/import/[source].post')).default as Handler
+const status = (await import('~~/server/api/import/status.get')).default as Handler
+const retryFailed = (await import('~~/server/api/import/retry-failed.post')).default as Handler
+
+const floppyCsv = 'row_type,media_id,media_type,title,end_date\nmedia,603,movie,The Matrix,2020-01-02 03:04:00+00:00\n'
+const traktJson = JSON.stringify([{ watched_at: '2026-07-13T04:41:00.000Z', type: 'movie', movie: { title: 'Dune', ids: { tmdb: 438631 } } }])
+const file = (filename: string, text: string): MultipartPart => ({ name: 'file', filename, data: strToU8(text) })
+const upload = (source: string, multipart?: MultipartPart[]) => event({ params: { source }, multipart })
+const summary = { added: 1, duplicates: 0, skipped: [], titlesQueued: 1 }
+
+beforeEach(() => {
+  harness.reset()
+  importPlays.mockReset().mockResolvedValue(summary)
+  harness.setSession({ user: { id: 7 } })
+})
+
+describe('POST /api/import/:source', () => {
+  it('rejects a request without a session with 401', async () => {
+    harness.setSession({})
+
+    await expect(runImport(upload('floppy', [file('f.csv', floppyCsv)]))).rejects.toMatchObject({ statusCode: 401 })
+  })
+
+  it('rejects an upload over 100 MB with 413 before reading it', async () => {
+    const oversized = { ...upload('floppy', [file('f.csv', floppyCsv)]), headers: { 'content-length': String(101 * 1024 * 1024) } }
+
+    await expect(runImport(oversized)).rejects.toMatchObject({ statusCode: 413 })
+    expect(importPlays).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unknown source with 400', async () => {
+    await expect(runImport(upload('imdb', [file('f.csv', floppyCsv)]))).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  it('rejects a request without a file with 400', async () => {
+    await expect(runImport(upload('floppy', []))).rejects.toMatchObject({ statusCode: 400 })
+    await expect(runImport(upload('floppy'))).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  it('rejects a Trakt file sent to the Floppy importer, naming the expected export', async () => {
+    await expect(runImport(upload('floppy', [file('watched-history-1.json', traktJson)])))
+      .rejects.toMatchObject({ statusCode: 400, statusMessage: 'This doesn\'t look like a Floppy export.' })
+  })
+
+  it('rejects a Floppy file sent to the Trakt importer, naming the expected export', async () => {
+    await expect(runImport(upload('trakt', [file('floppy.csv', floppyCsv)])))
+      .rejects.toMatchObject({ statusCode: 400, statusMessage: 'This doesn\'t look like a Trakt export.' })
+  })
+
+  it('imports a Floppy file for the session user and returns the summary', async () => {
+    await expect(runImport(upload('floppy', [file('f.csv', floppyCsv)]))).resolves.toEqual(summary)
+
+    expect(importPlays).toHaveBeenCalledWith(7, expect.objectContaining({ plays: [expect.objectContaining({ tmdbId: 603 })] }), 'floppy')
+  })
+
+  it('imports every Trakt file in one request', async () => {
+    await runImport(upload('trakt', [file('watched-history-1.json', traktJson), file('watched-history-2.json', traktJson)]))
+
+    expect(importPlays.mock.calls[0]?.[1].plays).toHaveLength(2)
+    expect(importPlays.mock.calls[0]?.[2]).toBe('trakt')
+  })
+})
+
+describe('import status and retry', () => {
+  it('require a session', async () => {
+    harness.setSession({})
+
+    await expect(status(event())).rejects.toMatchObject({ statusCode: 401 })
+    await expect(retryFailed(event())).rejects.toMatchObject({ statusCode: 401 })
+  })
+})

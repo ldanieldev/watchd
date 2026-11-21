@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Episode, LibraryData, Title } from '~/utils/library/types'
-import { buildFixtures } from '~/utils/library/fixtures'
+import { buildFixtures } from '~~/test/fixtures/buildFixtures'
 import { relativeDay } from '~/utils/library/dates'
 import {
   episodeCode,

@@ -4,9 +4,9 @@ import { enableAutoUnmount } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { UApp } from '#components'
 import StatsPage from '~/pages/stats.vue'
-import { buildFixtures } from '~/utils/library/fixtures'
 import { statsWindow, statWatches, totals } from '~/utils/library/stats'
 import type { LibraryData } from '~/utils/library/types'
+import { useFixtureLibrary } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
@@ -15,12 +15,12 @@ const StatsInApp = defineComponent({ render: () => h(UApp, null, { default: () =
 
 describe('stats page', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
+    useFixtureLibrary()
   })
 
   it('leads with the hours and titles for the last 12 months', async () => {
     const today = new Date()
-    const fixtures = buildFixtures(today)
+    const fixtures = useState<LibraryData>('library').value
     const window = statsWindow('12m', today, fixtures)
     const expected = totals(statWatches(fixtures, 'all', window.from, window.to))
 
@@ -35,7 +35,7 @@ describe('stats page', () => {
       episodes: [{ id: 'tulsa-king-1-1', titleId: 'tulsa-king', season: 1, number: 1, airDate: '2022-11-13' }],
       watches: [{ titleId: 'tulsa-king', episodeId: 'tulsa-king-1-1', watchedAt: '2026-03-02T21:00:00' }]
     }
-    useState('library', () => shows)
+    useFixtureLibrary(shows)
     const wrapper = await mountSuspended(StatsInApp, { route: '/stats' })
 
     const moviesTab = wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Movies')!
@@ -56,7 +56,7 @@ describe('stats page', () => {
 
 describe('stats page sections', () => {
   beforeEach(() => {
-    clearNuxtState(['library', 'library-today'])
+    useFixtureLibrary()
   })
 
   it('groups panels under plain section headings', async () => {

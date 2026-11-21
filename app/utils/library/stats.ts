@@ -1,5 +1,5 @@
 import type { Episode, LibraryData, MediaType, Title, TitleStatus, TitleSummary, TypeFilter, WatchEvent } from './types'
-import { titleDetailFor, type CreditPerson } from './details'
+import type { CreditPerson } from '~~/shared/types/library'
 import { addDays, parseIsoDate, toIsoDate } from './dates'
 import { minutesForWatch } from './watchTime'
 
@@ -234,10 +234,9 @@ function rank<T>(tallies: Tally<T>[], metric: 'plays' | 'titles' | 'minutes', la
 }
 
 function creditsFor(watch: StatWatch, role: CreditRole): CreditPerson[] {
-  const detail = titleDetailFor(watch.title.id)
-  if (!detail) return []
-  if (role === 'actor') return detail.cast
-  return detail.crew.filter(person => (role === 'director' ? person.role === 'Director' : WRITER_ROLES.has(person.role)))
+  const { cast = [], crew = [] } = watch.title
+  if (role === 'actor') return cast
+  return crew.filter(person => (role === 'director' ? person.role === 'Director' : WRITER_ROLES.has(person.role)))
 }
 
 function personKeys(people: CreditPerson[]): { key: string, item: CreditPerson }[] {
@@ -250,8 +249,7 @@ export function roleLeaders(watches: StatWatch[], role: CreditRole, metric: 'pla
 
 export function featuredPerson(watches: StatWatch[]): { person: CreditPerson, titles: Title[], movies: number, shows: number, playShare: number } | undefined {
   const tallies = tallyBy(watches, (watch) => {
-    const detail = titleDetailFor(watch.title.id)
-    return detail ? personKeys([...detail.cast, ...detail.crew]) : []
+    return personKeys([...(watch.title.cast ?? []), ...(watch.title.crew ?? [])])
   })
   const top = tallies.sort((first, second) => second.titleIds.size - first.titleIds.size || second.plays - first.plays || first.item.name.localeCompare(second.item.name))[0]
   if (!top) return undefined
@@ -266,13 +264,13 @@ function nameKeys(names: string[]): { key: string, item: string }[] {
 
 export function studioLeaders(watches: StatWatch[], metric: 'plays' | 'titles', limit = 5): Ranked<string>[] {
   return rank(tallyBy(watches, (watch) => {
-    const detail = titleDetailFor(watch.title.id)
-    return detail ? nameKeys([...(detail.network ? [detail.network] : []), ...detail.studios]) : []
+    const { network, studios = [] } = watch.title
+    return nameKeys([...(network ? [network] : []), ...studios])
   }), metric, name => name, limit)
 }
 
 export function genreLeaders(watches: StatWatch[], metric: 'minutes' | 'plays', limit = 5): Ranked<string>[] {
-  return rank(tallyBy(watches, watch => nameKeys(titleDetailFor(watch.title.id)?.genres ?? [])), metric, name => name, limit)
+  return rank(tallyBy(watches, watch => nameKeys(watch.title.genres ?? [])), metric, name => name, limit)
 }
 
 export function eraLeaders(watches: StatWatch[], metric: 'minutes' | 'plays', limit = 5): Ranked<string>[] {
