@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { enableAutoUnmount, type VueWrapper } from '@vue/test-utils'
 import { createError } from 'h3'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
-import { UApp } from '#components'
+import { UApp, SettingsImportSourceCard } from '#components'
+import type { ImportSummary } from '~~/shared/types/library'
 import ImportPage from '~/pages/settings/import.vue'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
@@ -49,6 +50,55 @@ describe('import data page', () => {
     expect(uploads).toEqual(['POST'])
     expect(card.text()).toContain('Already in watchd 2')
     expect(card.text()).toContain('Row 4: The Matrix (no watch date)')
+  })
+
+  it('restores a watchd backup and reports plays and title settings', async () => {
+    givenStatus({ total: 0, pending: 0, ready: 0, failed: 0 })
+    registerEndpoint('/api/import/watchd', { method: 'POST', once: true, handler: () => (
+      { added: 5, duplicates: 1, skipped: [], titlesQueued: 2, titleSettings: { added: 3, alreadySet: 4 } }
+    ) })
+    const wrapper = await mountSuspended(ImportInApp, { route: '/settings/import' })
+
+    const card = await chooseFile(wrapper, 'Watchd backup', new File(['{}'], 'watchd-backup.json', { type: 'application/json' }))
+    expect(card.find('input[type="file"]').attributes('accept')).toBe('.json,application/json')
+    expect(card.findAll('button').some(button => button.text() === 'Import plays')).toBe(false)
+    await card.findAll('button').find(button => button.text() === 'Restore backup')!.trigger('click')
+
+    await vi.waitFor(() => expect(card.text()).toContain('Added 5'))
+    expect(card.text()).toContain('Title settings added 3')
+    expect(card.text()).toContain('Title settings already set 4')
+  })
+
+  it('lists skipped rows even when a play and a title setting share a line number', async () => {
+    givenStatus({ total: 0, pending: 0, ready: 0, failed: 0 })
+    registerEndpoint('/api/import/watchd', { method: 'POST', once: true, handler: () => ({
+      added: 0,
+      duplicates: 0,
+      skipped: [{ line: 1, title: 'Dune', reason: 'bad play' }, { line: 1, title: 'Dune', reason: 'bad setting' }],
+      titlesQueued: 0,
+      titleSettings: { added: 0, alreadySet: 0 }
+    }) })
+    const wrapper = await mountSuspended(ImportInApp, { route: '/settings/import' })
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const card = await chooseFile(wrapper, 'Watchd backup', new File(['{}'], 'watchd-backup.json'))
+    await card.findAll('button').find(button => button.text() === 'Restore backup')!.trigger('click')
+
+    await vi.waitFor(() => expect(card.findAll('li')).toHaveLength(2))
+    // Vue only checks for duplicate keys when it patches a changed list, so swap in a list whose middle repeats the same line and title.
+    const cardVm = wrapper.findAllComponents(SettingsImportSourceCard).find(cardComponent => cardComponent.props('source') === 'watchd')!.vm as unknown as { summary: ImportSummary }
+    cardVm.summary = {
+      ...cardVm.summary,
+      skipped: [
+        { line: 0, title: 'Start', reason: 'bad play' },
+        { line: 1, title: 'Dune', reason: 'bad play' },
+        { line: 1, title: 'Dune', reason: 'bad setting' },
+        { line: 9, title: 'End', reason: 'bad play' }
+      ]
+    }
+    await nextTick()
+    expect(warn.mock.calls.flat().filter(argument => String(argument).includes('Duplicate keys'))).toEqual([])
+    expect(card.find('details').findAll('li')).toHaveLength(4)
   })
 
   it('shows the server\'s reason when a file is rejected', async () => {

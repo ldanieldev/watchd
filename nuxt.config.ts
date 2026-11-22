@@ -88,6 +88,7 @@ export default defineNuxtConfig({
     },
     tmdbApiKey: '',
     registration: 'open',
+    trustProxy: false,
     plex: {
       syncMode: 'off',
       clientIdentifier: ''

@@ -92,6 +92,7 @@ export interface ImportSummary {
   duplicates: number
   skipped: SkippedRow[]
   titlesQueued: number
+  titleSettings?: { added: number, alreadySet: number }
 }
 
 export interface EnrichmentStatus {

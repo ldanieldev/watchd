@@ -58,10 +58,12 @@ export function createServerHandlerHarness() {
   const returningColumns = vi.fn()
   const insertValues = vi.fn(() => insertChain)
   const updateSet = vi.fn(() => updateChain)
+  const updateWhere = vi.fn()
   let deleteReturn: unknown[] = []
   const deleteFrom = vi.fn()
   const deleteWhere = vi.fn(() => thenableChain(['returning'], () => Promise.resolve(deleteReturn)))
   const setUserSession = vi.fn(() => Promise.resolve())
+  const setResponseHeader = vi.fn()
   const clearUserSession = vi.fn(() => Promise.resolve())
   const replaceUserSession = vi.fn((_event: unknown, data: SessionState) => {
     session = data
@@ -75,7 +77,7 @@ export function createServerHandlerHarness() {
   const updateChain = thenableChain(
     ['where', 'returning'],
     () => Promise.resolve(updateReturn),
-    { returning: returningColumns })
+    { where: updateWhere, returning: returningColumns })
 
   const db = {
     select: (columns?: unknown) => {
@@ -111,12 +113,13 @@ export function createServerHandlerHarness() {
   vi.stubGlobal('getCookie', (event: HandlerEvent, name: string) => event.cookies?.[name])
   vi.stubGlobal('getRequestWebStream', (event: HandlerEvent) => event.stream)
   vi.stubGlobal('getRequestHeader', (event: HandlerEvent, name: string) => event.headers?.[name.toLowerCase()])
+  vi.stubGlobal('setResponseHeader', setResponseHeader)
   vi.stubGlobal('clearUserSession', clearUserSession)
   vi.stubGlobal('replaceUserSession', replaceUserSession)
   vi.stubGlobal('getRequestURL', () => new URL('https://watchd.test/api/x'))
 
   return {
-    mocks: { selectColumns, selectWhere, returningColumns, insertValues, updateSet, deleteWhere, deleteFrom, setUserSession, clearUserSession, replaceUserSession },
+    mocks: { selectColumns, selectWhere, returningColumns, insertValues, updateSet, updateWhere, deleteWhere, deleteFrom, setResponseHeader, setUserSession, clearUserSession, replaceUserSession },
 
     givenDb({ select = [], insert = [], insertError: failure = null, update = [], delete: deleted = [] }: QueuedResults) {
       deleteReturn = deleted

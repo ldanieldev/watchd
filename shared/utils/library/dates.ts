@@ -22,10 +22,28 @@ export function monthName(date: Date): string {
   return date.toLocaleString('en', { month: 'long' })
 }
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+
+const RELATIVE_TIME_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 31_536_000],
+  ['month', 2_592_000],
+  ['day', 86_400],
+  ['hour', 3_600],
+  ['minute', 60]
+]
+
 export function relativeDay(isoDateTime: string, now: Date): string {
   const days = Math.round((parseIsoDate(toIsoDate(now)).getTime() - parseIsoDate(isoDateTime).getTime()) / 86_400_000)
   if (days === 0) return 'today'
-  return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-days, 'day')
+  return relativeTimeFormatter.format(-days, 'day')
+}
+
+export function relativeTimeAgo(isoDateTime: string, now: Date): string {
+  const secondsAgo = Math.max(0, Math.round((now.getTime() - new Date(isoDateTime).getTime()) / 1000))
+  const unitMatch = RELATIVE_TIME_UNITS.find(([, unitSeconds]) => secondsAgo >= unitSeconds)
+  if (!unitMatch) return 'just now'
+  const [unit, unitSeconds] = unitMatch
+  return relativeTimeFormatter.format(-Math.floor(secondsAgo / unitSeconds), unit)
 }
 
 export function msUntilNextMidnight(now: Date): number {

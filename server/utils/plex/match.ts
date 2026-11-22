@@ -1,7 +1,7 @@
+import { POSTGRES_INTEGER_MAX } from '../../../shared/utils/postgresLimits'
 import type { PlexItem } from './types'
 
 const TMDB_GUID_PATTERN = /^tmdb:\/\/(\d+)$/
-const POSTGRES_INTEGER_MAX = 2_147_483_647
 
 export interface TmdbEpisodeRef {
   season: number

@@ -1,24 +1,29 @@
 import { parseFloppyCsv } from '~~/server/utils/import/floppy'
 import { readTraktUpload } from '~~/server/utils/import/trakt'
-import { NotAnExportError, type ParsedImport } from '~~/server/utils/import/types'
+import { NotAnExportError, UnsupportedBackupVersionError, type ParsedImport } from '~~/server/utils/import/types'
+import { parseWatchdBackup } from '~~/server/utils/import/watchdBackup'
 import { importPlays } from '~~/server/utils/import/writePlays'
 import { BodyTooLargeError, readBodyWithin } from '~~/server/utils/import/readBodyWithin'
 
 const sources = {
   floppy: {
-    label: 'Floppy',
+    label: 'Floppy export',
     parse: (files: { filename: string, data: Uint8Array }[]) => parseFloppyCsv(new TextDecoder().decode(files[0]!.data))
   },
   trakt: {
-    label: 'Trakt',
+    label: 'Trakt export',
     parse: readTraktUpload
+  },
+  watchd: {
+    label: 'Watchd backup',
+    parse: files => parseWatchdBackup(new TextDecoder().decode(files[0]!.data))
   }
 } satisfies Record<string, { label: string, parse: (files: { filename: string, data: Uint8Array }[]) => ParsedImport }>
 
 type Source = keyof typeof sources
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024
-const tooLarge = () => createError({ statusCode: 413, statusMessage: 'That file is over 100 MB, which is larger than any Floppy or Trakt export.' })
+const tooLarge = () => createError({ statusCode: 413, statusMessage: 'That file is over 100 MB, which is larger than any export or backup.' })
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -46,7 +51,10 @@ export default defineEventHandler(async (event) => {
     parsed = importer.parse(files)
   } catch (error) {
     if (error instanceof NotAnExportError) {
-      throw createError({ statusCode: 400, statusMessage: `This doesn't look like a ${importer.label} export.`, data: { detail: error.message } })
+      throw createError({ statusCode: 400, statusMessage: `This doesn't look like a ${importer.label}.`, data: { detail: error.message } })
+    }
+    if (error instanceof UnsupportedBackupVersionError) {
+      throw createError({ statusCode: 400, statusMessage: 'This backup is from a newer version of watchd.', data: { detail: error.message } })
     }
     throw error
   }

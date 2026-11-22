@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { titles, watches } from '~~/server/db/schema'
+import { titles, userTitles, watches } from '~~/server/db/schema'
 
 const send = vi.fn()
 vi.mock('~~/server/utils/inngest/client', () => ({ inngest: { send } }))
@@ -12,16 +12,36 @@ const play = (tmdbId: number, minute: number) => ({
 
 interface ExistingTitle { id: number, tmdbId: number, state?: 'pending' | 'ready' | 'failed', updatedAt?: Date }
 
-function fakeDb({ newTitleIds, existing, insertedWatches }: { newTitleIds: number[], existing: ExistingTitle[], insertedWatches: number }) {
-  const chain = (result: unknown) => {
+interface FakeDbOptions { newTitleIds: number[], existing: ExistingTitle[], insertedWatches: number, insertedTitleSettings?: number }
+
+function fakeDb({ newTitleIds, existing, insertedWatches, insertedTitleSettings = 0 }: FakeDbOptions) {
+  const insertedValues = new Map<unknown, unknown[]>()
+  const conflictTargets = new Map<unknown, unknown>()
+  const chain = (result: unknown, table?: unknown) => {
     const link: Record<string, unknown> = { then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve) }
-    for (const method of ['values', 'onConflictDoNothing', 'returning', 'from', 'where']) link[method] = () => link
+    for (const method of ['returning', 'from', 'where']) link[method] = () => link
+    link.values = (values: unknown[]) => {
+      insertedValues.set(table, [...(insertedValues.get(table) ?? []), ...values])
+      return link
+    }
+    link.onConflictDoNothing = (config?: { target?: unknown }) => {
+      conflictTargets.set(table, config?.target)
+      return link
+    }
     return link
   }
+  const insertResult = (table: unknown) => {
+    if (table === titles) return newTitleIds.map(id => ({ id }))
+    if (table === watches) return Array.from({ length: insertedWatches }, (_, id) => ({ id }))
+    if (table === userTitles) return Array.from({ length: insertedTitleSettings }, (_, id) => ({ id }))
+    return []
+  }
   return {
-    insert: (table: unknown) => chain(table === titles
-      ? newTitleIds.map(id => ({ id }))
-      : table === watches ? Array.from({ length: insertedWatches }, (_, id) => ({ id })) : []),
+    insertedValues,
+    conflictTargets,
+    insert: (table: unknown) => chain(insertResult(table), table),
+    update: vi.fn(() => chain([])),
+    delete: vi.fn(() => chain([])),
     select: () => chain(existing.map(row => ({ state: 'ready', updatedAt: new Date(), ...row })))
   }
 }
@@ -58,5 +78,55 @@ describe('importPlays', () => {
 
     expect(summary.titlesQueued).toBe(1)
     expect(send).toHaveBeenCalledWith([{ name: 'library/title.enrich', data: { titleId: 1 } }])
+  })
+
+  it('keeps each restored play\'s own source, minutes and Plex ids', async () => {
+    const fake = fakeDb({ newTitleIds: [], existing: [{ id: 1, tmdbId: 10 }], insertedWatches: 1 })
+    vi.stubGlobal('db', fake)
+    const restoredPlay = { ...play(10, 1), source: 'plex' as const, minutesWatched: 42, plexHistoryId: 9001, plexServerMachineId: 'machine-abc' }
+
+    await importPlays(7, { plays: [restoredPlay], skipped: [] }, 'watchd')
+
+    expect(fake.insertedValues.get(watches)).toEqual([expect.objectContaining({
+      userId: 7, titleId: 1, source: 'plex', minutesWatched: 42, plexHistoryId: 9001, plexServerMachineId: 'machine-abc'
+    })])
+  })
+
+  it('counts plays the insert skips as duplicates and leaves existing rows untouched', async () => {
+    const fake = fakeDb({ newTitleIds: [], existing: [{ id: 1, tmdbId: 10 }, { id: 2, tmdbId: 20 }], insertedWatches: 1 })
+    vi.stubGlobal('db', fake)
+
+    const summary = await importPlays(7, { plays: [play(10, 1), play(20, 2)], skipped: [] }, 'watchd')
+
+    expect(summary).toMatchObject({ added: 1, duplicates: 1 })
+    expect(fake.update).not.toHaveBeenCalled()
+    expect(fake.delete).not.toHaveBeenCalled()
+  })
+
+  it('adds title settings only where the account has none, stubbing a title that has no play', async () => {
+    const fake = fakeDb({ newTitleIds: [2], existing: [{ id: 1, tmdbId: 10 }, { id: 2, tmdbId: 20 }], insertedWatches: 1, insertedTitleSettings: 1 })
+    vi.stubGlobal('db', fake)
+    const titleSettings = [
+      { kind: 'movie' as const, tmdbId: 10, titleName: 'Movie 10', typeOverride: null, heldStatus: 'paused' as const },
+      { kind: 'movie' as const, tmdbId: 20, titleName: 'Movie 20', typeOverride: 'anime' as const, heldStatus: null }
+    ]
+
+    const summary = await importPlays(7, { plays: [play(10, 1)], skipped: [], titleSettings }, 'watchd')
+
+    expect(summary.titleSettings).toEqual({ added: 1, alreadySet: 1 })
+    expect(fake.insertedValues.get(titles)).toContainEqual(expect.objectContaining({ kind: 'movie', tmdbId: 20, name: 'Movie 20' }))
+    expect(fake.insertedValues.get(userTitles)).toEqual([
+      { userId: 7, titleId: 1, typeOverride: null, heldStatus: 'paused' },
+      { userId: 7, titleId: 2, typeOverride: 'anime', heldStatus: null }
+    ])
+    expect(fake.conflictTargets.get(userTitles)).toEqual([userTitles.userId, userTitles.titleId])
+  })
+
+  it('leaves title settings out of the summary for an import without them', async () => {
+    vi.stubGlobal('db', fakeDb({ newTitleIds: [], existing: [{ id: 1, tmdbId: 10 }], insertedWatches: 1 }))
+
+    const summary = await importPlays(7, { plays: [play(10, 1)], skipped: [] }, 'floppy')
+
+    expect(summary).not.toHaveProperty('titleSettings')
   })
 })

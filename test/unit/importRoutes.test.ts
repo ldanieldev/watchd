@@ -15,6 +15,13 @@ const retryFailed = (await import('~~/server/api/import/retry-failed.post')).def
 
 const floppyCsv = 'row_type,media_id,media_type,title,end_date\nmedia,603,movie,The Matrix,2020-01-02 03:04:00+00:00\n'
 const traktJson = JSON.stringify([{ watched_at: '2026-07-13T04:41:00.000Z', type: 'movie', movie: { title: 'Dune', ids: { tmdb: 438631 } } }])
+const watchdBackupJson = (version: number) => JSON.stringify({
+  format: 'watchd-backup', version, exportedAt: '2026-11-21T09:00:00.000Z', titleSettings: [],
+  plays: [{
+    kind: 'movie', tmdbId: 603, titleName: 'The Matrix', season: null, number: null, watchedAt: '2020-01-02T03:04:00.000Z',
+    minutesWatched: null, source: 'trakt', plexHistoryId: null, plexServerMachineId: null
+  }]
+})
 const file = (filename: string, text: string): MultipartPart => ({ name: 'file', filename, data: strToU8(text) })
 const upload = (source: string, multipart?: MultipartPart[]) => event({ params: { source }, multipart })
 const summary = { added: 1, duplicates: 0, skipped: [], titlesQueued: 1 }
@@ -35,7 +42,9 @@ describe('POST /api/import/:source', () => {
   it('rejects an upload over 100 MB with 413 before reading it', async () => {
     const oversized = { ...upload('floppy', [file('f.csv', floppyCsv)]), headers: { 'content-length': String(101 * 1024 * 1024) } }
 
-    await expect(runImport(oversized)).rejects.toMatchObject({ statusCode: 413 })
+    await expect(runImport(oversized)).rejects.toMatchObject({
+      statusCode: 413, statusMessage: 'That file is over 100 MB, which is larger than any export or backup.'
+    })
     expect(importPlays).not.toHaveBeenCalled()
   })
 
@@ -83,6 +92,27 @@ describe('POST /api/import/:source', () => {
 
     expect(importPlays.mock.calls[0]?.[1].plays).toHaveLength(2)
     expect(importPlays.mock.calls[0]?.[2]).toBe('trakt')
+  })
+})
+
+describe('POST /api/import/watchd', () => {
+  it('restores a backup for the session user through the watchd source', async () => {
+    await runImport(upload('watchd', [file('watchd-backup-2026-11-21.json', watchdBackupJson(1))]))
+
+    expect(importPlays).toHaveBeenCalledWith(7, expect.objectContaining({
+      plays: [expect.objectContaining({ tmdbId: 603, source: 'trakt' })], titleSettings: []
+    }), 'watchd')
+  })
+
+  it('rejects a backup from a newer version of watchd with 400', async () => {
+    await expect(runImport(upload('watchd', [file('watchd-backup.json', watchdBackupJson(2))])))
+      .rejects.toMatchObject({ statusCode: 400, statusMessage: 'This backup is from a newer version of watchd.' })
+    expect(importPlays).not.toHaveBeenCalled()
+  })
+
+  it('rejects a file that is not a backup with 400', async () => {
+    await expect(runImport(upload('watchd', [file('floppy.csv', floppyCsv)])))
+      .rejects.toMatchObject({ statusCode: 400, statusMessage: 'This doesn\'t look like a Watchd backup.' })
   })
 })
 

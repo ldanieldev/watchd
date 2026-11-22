@@ -2,12 +2,13 @@
 import type { ImportSummary } from '~~/shared/types/library'
 
 const props = defineProps<{
-  source: 'floppy' | 'trakt'
+  source: 'floppy' | 'trakt' | 'watchd'
   label: string
   description: string
   accept: string
   fileHint: string
   multiple?: boolean
+  actionLabel?: string
 }>()
 
 const emit = defineEmits<{ imported: [summary: ImportSummary] }>()
@@ -66,7 +67,7 @@ async function onImport() {
           :ui="{ base: 'min-h-32' }"
         />
         <UButton
-          label="Import plays"
+          :label="actionLabel ?? 'Import plays'"
           icon="i-lucide-file-up"
           :loading="isImporting"
           :disabled="!chosenFiles.length"
@@ -113,6 +114,28 @@ async function onImport() {
               {{ summary.skipped.length.toLocaleString('en') }}
             </dd>
           </div>
+          <div
+            v-if="summary.titleSettings"
+            class="flex flex-col"
+          >
+            <dt class="text-sm text-muted">
+              Title settings added
+            </dt>
+            <dd class="font-display text-2xl font-bold tabular-nums text-highlighted">
+              {{ summary.titleSettings.added.toLocaleString('en') }}
+            </dd>
+          </div>
+          <div
+            v-if="summary.titleSettings"
+            class="flex flex-col"
+          >
+            <dt class="text-sm text-muted">
+              Title settings already set
+            </dt>
+            <dd class="font-display text-2xl font-bold tabular-nums text-highlighted">
+              {{ summary.titleSettings.alreadySet.toLocaleString('en') }}
+            </dd>
+          </div>
         </dl>
         <details
           v-if="summary.skipped.length"
@@ -123,8 +146,8 @@ async function onImport() {
           </summary>
           <ul class="mt-2 flex max-h-72 flex-col gap-1 overflow-y-auto pe-2">
             <li
-              v-for="row in summary.skipped"
-              :key="`${row.line}-${row.title}`"
+              v-for="(row, index) in summary.skipped"
+              :key="`${index}-${row.line}-${row.title}`"
               class="break-words"
             >
               Row {{ row.line }}: {{ row.title }} ({{ row.reason }})

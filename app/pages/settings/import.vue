@@ -14,6 +14,15 @@ async function onImported() {
       Import data
     </h1>
     <SettingsImportSourceCard
+      source="watchd"
+      label="Watchd backup"
+      description="Restores a watchd backup. Plays and title settings already in your library are kept, so restoring the same file twice adds nothing."
+      accept=".json,application/json"
+      file-hint="A watchd-backup .json file from Export data"
+      action-label="Restore backup"
+      @imported="onImported"
+    />
+    <SettingsImportSourceCard
       source="floppy"
       label="Floppy"
       description="Brings over every play in a Floppy export. Collections, lists and ratings are left out, and importing the same file again adds nothing twice."

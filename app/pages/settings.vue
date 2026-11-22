@@ -19,11 +19,13 @@ const links = [[
   },
   {
     label: 'Export Data',
-    icon: 'i-lucide-file-down'
+    icon: 'i-lucide-file-down',
+    to: '/settings/export'
   },
   {
     label: 'Advanced',
-    icon: 'i-lucide-wrench'
+    icon: 'i-lucide-wrench',
+    to: '/settings/advanced'
   }
 ]
 ] satisfies NavigationMenuItem[][]
