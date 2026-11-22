@@ -14,6 +14,7 @@ const props = defineProps<{
 }>()
 
 const { data, today, addMovieWatch, removeWatch, restoreWatches } = useLibrary()
+const { isRefreshing, refreshTitle } = useTitleRefresh()
 const timeZone = useLibraryTimeZone()
 const { showUndoToast } = useUndoToast()
 const todayIso = computed(() => toIsoDate(today.value))
@@ -77,6 +78,15 @@ function onRemoveWatch(watchedAt: string) {
             class="tabular-nums"
           >{{ runtimeLabel }}</span>
           <span v-if="detail?.certification">{{ detail.certification }}</span>
+          <UButton
+            size="xs"
+            variant="link"
+            color="neutral"
+            :loading="isRefreshing"
+            @click="refreshTitle(title)"
+          >
+            Refresh from TMDB
+          </UButton>
         </p>
         <p class="text-base font-medium text-highlighted tabular-nums">
           {{ watchSummary }}

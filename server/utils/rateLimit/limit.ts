@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import { cacheRedisClient } from '~~/server/utils/cache/cacheBackend'
 import { logger } from '~~/server/utils/logger'
 import {
   createMemoryStore,
@@ -7,22 +8,20 @@ import {
   ruleKey,
   type RateCount,
   type RateRule,
-  type RateStore,
-  type RedisLike
+  type RateStore
 } from './store'
 
 export const RATE_RULES = {
-  badToken: { name: 'token-ip', limit: 30, windowSeconds: 15 * 60 }
+  badToken: { name: 'token-ip', limit: 30, windowSeconds: 15 * 60 },
+  libraryRefresh: { name: 'library-refresh', limit: 3, windowSeconds: 3600 },
+  titleRefresh: { name: 'title-refresh', limit: 30, windowSeconds: 900 },
+  searchRebuild: { name: 'search-rebuild', limit: 6, windowSeconds: 3600 }
 } satisfies Record<string, RateRule>
 
 const memory = createMemoryStore()
 
 function currentStore(): RateStore {
-  const driver = useStorage().getMount('cache').driver as {
-    name?: string
-    getInstance?: () => RedisLike & { status?: string }
-  }
-  const redis = driver.name === 'redis' ? driver.getInstance?.() : undefined
+  const redis = cacheRedisClient()
   return redis?.status === 'ready' ? createRedisStore(redis) : memory
 }
 

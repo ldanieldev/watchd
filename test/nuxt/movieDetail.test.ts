@@ -1,16 +1,34 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { ref } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h, ref } from 'vue'
 import { enableAutoUnmount } from '@vue/test-utils'
-import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { createError } from 'h3'
+import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
+import { UApp } from '#components'
 import MoviePage from '~/pages/movies/[id].vue'
 import { fixtureLibrary, useFixtureLibrary } from '~~/test/fixtures/library'
 
 mockNuxtImport('useUserSession', () => () => ({ loggedIn: ref(true) }))
 enableAutoUnmount(afterEach)
 
+const refreshRequests: string[] = []
+const refreshOutcome = { failure: undefined as { statusCode: number, statusMessage: string } | undefined }
+const PageInApp = defineComponent({ render: () => h(UApp, null, { default: () => h(MoviePage) }) })
+
+registerEndpoint('/api/library/titles/ex-machina/refresh', {
+  method: 'POST',
+  handler: () => {
+    refreshRequests.push('ex-machina')
+    if (refreshOutcome.failure) throw createError(refreshOutcome.failure)
+    return { queued: 1 }
+  }
+})
+
 describe('movie detail page', () => {
   beforeEach(() => {
     useFixtureLibrary()
+    useToast().clear()
+    refreshRequests.length = 0
+    refreshOutcome.failure = undefined
   })
 
   it('calls out the unwatched film in a partly watched collection', async () => {
@@ -63,5 +81,24 @@ describe('movie detail page', () => {
     expect(headings).not.toContain('Cast')
     expect(headings).not.toContain('Crew')
     expect(headings).not.toContain('Collection')
+  })
+
+  it('refreshes the title from TMDB and toasts', async () => {
+    const wrapper = await mountSuspended(PageInApp, { route: '/movies/ex-machina', attachTo: document.body })
+
+    await wrapper.findAll('button').find(button => button.text() === 'Refresh from TMDB')!.trigger('click')
+
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Refreshing Ex Machina'))
+    expect(document.body.textContent).toContain('Reload the page in a minute to see the changes.')
+    expect(refreshRequests).toEqual(['ex-machina'])
+  })
+
+  it('toasts when the refresh fails', async () => {
+    refreshOutcome.failure = { statusCode: 429, statusMessage: 'Too many refreshes' }
+    const wrapper = await mountSuspended(PageInApp, { route: '/movies/ex-machina', attachTo: document.body })
+
+    await wrapper.findAll('button').find(button => button.text() === 'Refresh from TMDB')!.trigger('click')
+
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Couldn\'t refresh Ex Machina'))
   })
 })

@@ -11,6 +11,9 @@ const { data: tokens, refresh } = await useFetch<AccessTokenSummary[]>('/api/tok
     <h1 class="sr-only">
       Advanced
     </h1>
+    <SettingsMaintenanceMetadataCard />
+    <SettingsMaintenanceSearchCard />
+    <SettingsMaintenanceCacheCard />
     <SettingsAccessTokens
       :tokens="tokens"
       @changed="refresh"

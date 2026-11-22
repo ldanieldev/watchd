@@ -63,6 +63,7 @@ const facts = computed<Fact[]>(() => {
 })
 
 const showApiError = useApiErrorToast()
+const { isRefreshing, refreshTitle } = useTitleRefresh()
 const isMovingType = ref(false)
 const otherType = computed(() => (props.title.type === 'anime' ? 'tv' : 'anime'))
 
@@ -102,6 +103,15 @@ function onMarkSeason(season: number) {
               @click="onMoveType"
             >
               Move to {{ mediaTypeStyles[otherType].label }}
+            </UButton>
+            <UButton
+              size="xs"
+              variant="link"
+              color="neutral"
+              :loading="isRefreshing"
+              @click="refreshTitle(title)"
+            >
+              Refresh from TMDB
             </UButton>
           </p>
           <p class="text-base font-medium text-highlighted tabular-nums">

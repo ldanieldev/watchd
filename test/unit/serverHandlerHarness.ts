@@ -79,12 +79,15 @@ export function createServerHandlerHarness() {
     () => Promise.resolve(updateReturn),
     { where: updateWhere, returning: returningColumns })
 
+  const select = (columns?: unknown) => {
+    selectColumns(columns)
+    const rows = selectQueue.shift() ?? []
+    return thenableChain(['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit'], () => Promise.resolve(rows), { where: selectWhere })
+  }
+
   const db = {
-    select: (columns?: unknown) => {
-      selectColumns(columns)
-      const rows = selectQueue.shift() ?? []
-      return thenableChain(['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit'], () => Promise.resolve(rows), { where: selectWhere })
-    },
+    select,
+    selectDistinct: select,
     insert: () => ({ values: insertValues }),
     update: () => ({ set: updateSet }),
     delete: (table: unknown) => {
