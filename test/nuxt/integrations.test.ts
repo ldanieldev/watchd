@@ -230,11 +230,11 @@ describe('integrations page', () => {
     await vi.waitFor(() => expect(routes.waitingPinChecks).toBe(2), { timeout: 3000 })
 
     await vi.advanceTimersByTimeAsync(1000)
-    await vi.waitFor(() => expect(routes.waitingPinChecks).toBe(3))
+    await vi.waitFor(() => expect(routes.waitingPinChecks).toBe(3), { timeout: 3000 })
 
     vi.setSystemTime(Date.now() + 2 * 60 * 1000)
     await vi.advanceTimersByTimeAsync(1000)
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Plex didn\'t confirm the sign-in within 2 minutes'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Plex didn\'t confirm the sign-in within 2 minutes'), { timeout: 3000 })
     const checksAtTimeout = routes.waitingPinChecks
 
     await vi.advanceTimersByTimeAsync(10_000)
