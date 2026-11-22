@@ -53,7 +53,7 @@ podman build --secret id=sentry_auth_token,src=<file> \
 
 The image also ships `.output/migrate.mjs` (applies `drizzle/`) and `.output/inngest-sync.mjs`. `compose.yml` runs the app's dependencies, not the app itself.
 
-No image is published yet (CI publish is deferred), so build it locally. The Sentry args and secret are optional, and the minimal build is `podman build --build-arg GIT_SHA=$(git rev-parse HEAD) -t ghcr.io/ldanieldev/watchd:0.1.0 .`. The production stack's compose file lives in the maintainer's vault note, not in this repo.
+Pushing a `vX.Y.Z` tag makes CI publish `ghcr.io/ldanieldev/watchd:X.Y.Z` (amd64, no `latest`); Sentry is baked in only when the repo variables `SENTRY_DSN`/`SENTRY_ORG` and secret `SENTRY_AUTH_TOKEN` are set. The minimal local build is `podman build --build-arg GIT_SHA=$(git rev-parse HEAD) -t watchd .`. The production stack's compose file lives in the maintainer's vault note, not in this repo.
 
 Production-relevant variables (all in `.env.example`):
 
