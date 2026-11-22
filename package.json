@@ -1,6 +1,7 @@
 {
   "name": "watchd",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "scripts": {
     "build": "nuxt build",
