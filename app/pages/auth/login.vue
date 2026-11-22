@@ -5,11 +5,14 @@ import * as z from 'zod'
 const { fetch: fetchSession } = useUserSession()
 const toast = useToast()
 
+const { data: registration } = await useFetch('/api/auth/registration')
+const registrationOpen = computed(() => registration.value?.open !== false)
+
 const fields: AuthFormField[] = [
   {
     name: 'email',
     type: 'email',
-    autocomplete: 'email',
+    autocomplete: 'username',
     label: 'Email',
     placeholder: 'Enter your email',
     required: true
@@ -18,7 +21,7 @@ const fields: AuthFormField[] = [
     name: 'password',
     label: 'Password',
     type: 'password',
-    autocomplete: 'password',
+    autocomplete: 'current-password',
     placeholder: 'Enter your password',
     required: true
   }
@@ -67,10 +70,14 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
         description="Enter your credentials to access your account."
         icon="i-lucide-user"
         :fields="fields"
+        :submit="{ label: 'Sign in' }"
         :loading="loading"
         @submit="onSubmit"
       >
-        <template #footer>
+        <template
+          v-if="registrationOpen"
+          #footer
+        >
           Don't have an account?
           <ULink
             to="/auth/register"

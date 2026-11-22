@@ -15,7 +15,7 @@ async function logInWith(page: Page, goto: Goto, email: string, password: string
   await goto('/auth/login', { waitUntil: 'hydration' })
   await page.getByPlaceholder('Enter your email').fill(email)
   await page.getByPlaceholder('Enter your password').fill(password)
-  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('button', { name: 'Sign in' }).click()
 }
 
 test.describe('profile information', () => {

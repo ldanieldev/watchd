@@ -1,6 +1,7 @@
 import { eq, getTableColumns } from 'drizzle-orm'
 import { z } from 'zod'
 import { users } from '~~/server/db/schema'
+import { isRegistrationOpen } from '~~/server/utils/registration'
 
 const registerSchema = z.object({
   name: z.string().min(1),
@@ -9,6 +10,10 @@ const registerSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
+  if (!await isRegistrationOpen()) {
+    throw createError({ statusCode: 403, statusMessage: 'Registration is closed' })
+  }
+
   const body = await readBody(event)
   const parsed = registerSchema.safeParse(body)
 

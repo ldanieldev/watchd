@@ -5,6 +5,9 @@ import * as z from 'zod'
 const { fetch: fetchSession } = useUserSession()
 const toast = useToast()
 
+const { data: registration } = await useFetch('/api/auth/registration')
+const registrationClosed = computed(() => registration.value?.open === false)
+
 const fields = [
   {
     name: 'name',
@@ -18,7 +21,7 @@ const fields = [
     name: 'email',
     type: 'email' as const,
     label: 'Email',
-    autocomplete: 'email',
+    autocomplete: 'username',
     placeholder: 'Enter your email',
     required: true
   },
@@ -83,13 +86,31 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
 
 <template>
   <div class="w-full max-w-md p-4">
-    <UPageCard class="w-full max-w-md">
+    <UPageCard
+      v-if="registrationClosed"
+      class="w-full max-w-md"
+      :ui="{ container: 'items-center text-center', wrapper: 'items-center' }"
+      title="Registration is closed"
+      description="New accounts can't be created right now. If you already have one, sign in."
+      icon="i-lucide-lock"
+    >
+      <UButton
+        to="/auth/login"
+        label="Sign in"
+        block
+      />
+    </UPageCard>
+    <UPageCard
+      v-else
+      class="w-full max-w-md"
+    >
       <UAuthForm
         :schema="schema"
         title="Create an account"
         description="Enter your details to get started."
         icon="i-lucide-user-plus"
         :fields="fields"
+        :submit="{ label: 'Create account' }"
         :loading="loading"
         @submit="onSubmit"
       >

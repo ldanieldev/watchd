@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServerHandlerHarness, event } from './serverHandlerHarness'
 
 const harness = createServerHandlerHarness()
@@ -10,9 +10,15 @@ const register = (await import('~~/server/api/auth/register.post')).default as H
 const login = (await import('~~/server/api/auth/login.post')).default as Handler
 const changePassword = (await import('~~/server/api/auth/password.put')).default as Handler
 
+let registrationMode = 'open'
+vi.stubGlobal('useRuntimeConfig', () => ({ registration: registrationMode }))
+
 const bodyEvent = (body: unknown) => event({ body })
 
-beforeEach(() => harness.reset())
+beforeEach(() => {
+  harness.reset()
+  registrationMode = 'open'
+})
 
 describe('POST /api/auth/register', () => {
   it.each([
@@ -25,7 +31,7 @@ describe('POST /api/auth/register', () => {
   })
 
   it('rejects an email that is already registered with 409', async () => {
-    harness.givenDb({ select: [[{ id: 'existing', password: 'scrypt:whatever' }]] })
+    harness.givenDb({ select: [[{ total: 5 }], [{ id: 'existing', password: 'scrypt:whatever' }]] })
 
     await expect(
       register(bodyEvent({ name: 'A', email: 'taken@example.com', password: 'password123' }))
@@ -33,8 +39,27 @@ describe('POST /api/auth/register', () => {
     expect(setUserSession).not.toHaveBeenCalled()
   })
 
+  it('rejects with 403 and inserts nothing when registration is closed and a user exists', async () => {
+    registrationMode = 'closed'
+    harness.givenDb({ select: [[{ total: 1 }]] })
+
+    await expect(
+      register(bodyEvent({ name: 'A', email: 'a@example.com', password: 'password123' }))
+    ).rejects.toMatchObject({ statusCode: 403, statusMessage: 'Registration is closed' })
+    expect(insertValues).not.toHaveBeenCalled()
+    expect(setUserSession).not.toHaveBeenCalled()
+  })
+
+  it('creates the first user when registration is closed and there are no users', async () => {
+    registrationMode = 'closed'
+    harness.givenDb({ select: [[{ total: 0 }], []], insert: [{ id: '1', email: 'a@example.com', name: 'A' }] })
+
+    await expect(register(bodyEvent({ name: 'A', email: 'a@example.com', password: 'password123' }))).resolves.toEqual({ success: true })
+    expect(insertValues).toHaveBeenCalled()
+  })
+
   it('stores a hash rather than the submitted password', async () => {
-    harness.givenDb({ select: [[]], insert: [{ id: '1', email: 'a@example.com', name: 'A' }] })
+    harness.givenDb({ select: [[{ total: 5 }], []], insert: [{ id: '1', email: 'a@example.com', name: 'A' }] })
 
     await register(bodyEvent({ name: 'A', email: 'a@example.com', password: 'password123' }))
 
@@ -42,7 +67,7 @@ describe('POST /api/auth/register', () => {
   })
 
   it('opens a session for the new user', async () => {
-    harness.givenDb({ select: [[]], insert: [{ id: 'new-id', email: 'a@example.com', name: 'A' }] })
+    harness.givenDb({ select: [[{ total: 5 }], []], insert: [{ id: 'new-id', email: 'a@example.com', name: 'A' }] })
 
     await expect(register(bodyEvent({ name: 'A', email: 'a@example.com', password: 'password123' }))).resolves.toEqual({ success: true })
     expect(setUserSession).toHaveBeenCalledWith(expect.anything(), {

@@ -32,7 +32,7 @@ test.describe('credentials register / login / logout', () => {
     await page.getByPlaceholder('Enter your email').fill(user.email)
     await page.getByPlaceholder('Create a password').fill(user.password)
     await page.getByPlaceholder('Confirm your password').fill(user.password)
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: 'Create account' }).click()
 
     await expect(page).not.toHaveURL(/\/auth\//)
     await expect(page.getByRole('button', { name: user.name })).toBeVisible()
@@ -46,7 +46,7 @@ test.describe('credentials register / login / logout', () => {
     await page.getByPlaceholder('Enter your email').fill(user.email)
     await page.getByPlaceholder('Create a password').fill(user.password)
     await page.getByPlaceholder('Confirm your password').fill('differentpassword')
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: 'Create account' }).click()
 
     await expect(page.getByText('Passwords do not match')).toBeVisible()
     await expect(page).toHaveURL(/\/auth\/register/)
@@ -62,7 +62,7 @@ test.describe('credentials register / login / logout', () => {
 
     await page.getByPlaceholder('Enter your email').fill(user.email)
     await page.getByPlaceholder('Enter your password').fill(user.password)
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: 'Sign in' }).click()
 
     await expect(page).not.toHaveURL(/\/auth\//)
     await expect(page.getByRole('button', { name: user.name })).toBeVisible()
@@ -73,7 +73,7 @@ test.describe('credentials register / login / logout', () => {
 
     await page.getByPlaceholder('Enter your email').fill(uniqueEmail('nope'))
     await page.getByPlaceholder('Enter your password').fill('wrongpassword') // ≥8 chars to pass client validation
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: 'Sign in' }).click()
 
     await expect(page.getByText('Login failed', { exact: true })).toBeVisible()
     await expect(page).toHaveURL(/\/auth\/login/)

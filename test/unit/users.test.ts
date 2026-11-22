@@ -4,12 +4,10 @@ import { users } from '~~/server/db/schema'
 import { createServerHandlerHarness, event } from './serverHandlerHarness'
 
 const harness = createServerHandlerHarness()
-const { selectColumns, returningColumns, insertValues, updateSet, deleteWhere, setUserSession, clearUserSession } = harness.mocks
+const { selectColumns, returningColumns, updateSet, deleteWhere, setUserSession, clearUserSession } = harness.mocks
 
 type Handler = (e: unknown) => Promise<unknown>
 
-const listUsers = (await import('~~/server/api/users/index.get')).default as Handler
-const createUser = (await import('~~/server/api/users/index.post')).default as Handler
 const getUser = (await import('~~/server/api/users/[id].get')).default as Handler
 const updateUser = (await import('~~/server/api/users/[id].put')).default as Handler
 const deleteUser = (await import('~~/server/api/users/[id].delete')).default as Handler
@@ -19,90 +17,44 @@ const columnsOf = (spy: typeof selectColumns) => Object.keys(spy.mock.calls[0]?.
 
 beforeEach(() => harness.reset())
 
-describe('GET /api/users', () => {
-  it('returns every user row', async () => {
-    harness.givenDb({ select: [[{ id: 1 }, { id: 2 }]] })
-
-    await expect(listUsers(event())).resolves.toEqual([{ id: 1 }, { id: 2 }])
-  })
-
-  it('never selects the password column', async () => {
-    harness.givenDb({ select: [[]] })
-
-    await listUsers(event())
-
-    expect(columnsOf(selectColumns)).not.toContain('password')
-    expect(columnsOf(selectColumns)).toContain('email')
-  })
-})
-
 describe('GET /api/users/:id', () => {
+  const read = (id: string) => getUser(event({ params: { id } }))
+
+  it('rejects an unauthenticated request with 401', async () => {
+    await expect(read('1')).rejects.toMatchObject({ statusCode: 401 })
+    expect(selectColumns).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['a non-numeric id', 'abc'],
     ['an empty id', ''],
     ['a zero id', '0']
   ])('rejects %s with 400', async (_label, id) => {
-    await expect(getUser(event({ params: { id } }))).rejects.toMatchObject({ statusCode: 400 })
+    harness.setSession({ user: owner })
+
+    await expect(read(id)).rejects.toMatchObject({ statusCode: 400 })
   })
 
-  it('rejects an id with no matching row with 404', async () => {
+  it('rejects reading another account with 403', async () => {
+    harness.setSession({ user: owner })
+
+    await expect(read('2')).rejects.toMatchObject({ statusCode: 403 })
+    expect(selectColumns).not.toHaveBeenCalled()
+  })
+
+  it('rejects an own id with no matching row with 404', async () => {
+    harness.setSession({ user: owner })
     harness.givenDb({ select: [[]] })
 
-    await expect(getUser(event({ params: { id: '9' } }))).rejects.toMatchObject({ statusCode: 404 })
+    await expect(read('1')).rejects.toMatchObject({ statusCode: 404 })
   })
 
-  it('returns the matching user', async () => {
+  it('returns the own user without the password column', async () => {
+    harness.setSession({ user: owner })
     harness.givenDb({ select: [[owner]] })
 
-    await expect(getUser(event({ params: { id: '1' } }))).resolves.toEqual(owner)
-  })
-
-  it('never selects the password column', async () => {
-    harness.givenDb({ select: [[owner]] })
-
-    await getUser(event({ params: { id: '1' } }))
-
+    await expect(read('1')).resolves.toEqual(owner)
     expect(columnsOf(selectColumns)).not.toContain('password')
-  })
-})
-
-describe('POST /api/users', () => {
-  const body = { name: 'A', email: 'a@example.com', password: 'password123' }
-
-  it.each([
-    ['a malformed email', { ...body, email: 'not-an-email' }],
-    ['a missing name', { email: 'a@example.com', password: 'password123' }],
-    ['a missing password', { name: 'A', email: 'a@example.com' }]
-  ])('rejects %s with 400', async (_label, invalid) => {
-    await expect(createUser(event({ body: invalid }))).rejects.toMatchObject({ statusCode: 400 })
-    expect(insertValues).not.toHaveBeenCalled()
-  })
-
-  it('stores a hash rather than the submitted password', async () => {
-    harness.givenDb({ insert: [{ id: 1 }] })
-
-    await createUser(event({ body }))
-
-    expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ password: 'scrypt:password123' }))
-  })
-
-  it('translates a unique-violation into a 409', async () => {
-    harness.givenDb({ insertError: Object.assign(new Error('duplicate key'), { code: '23505' }) })
-
-    await expect(createUser(event({ body }))).rejects.toMatchObject({ statusCode: 409 })
-  })
-
-  it('rethrows a database error that is not a unique violation', async () => {
-    harness.givenDb({ insertError: Object.assign(new Error('connection lost'), { code: '08006' }) })
-
-    await expect(createUser(event({ body }))).rejects.toThrow('connection lost')
-  })
-
-  it('returns the created row without its password column', async () => {
-    harness.givenDb({ insert: [{ id: 1, ...body, password: undefined }] })
-
-    await expect(createUser(event({ body }))).resolves.toMatchObject({ id: 1 })
-    expect(columnsOf(returningColumns)).not.toContain('password')
   })
 })
 

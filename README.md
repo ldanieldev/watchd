@@ -23,7 +23,7 @@ curl -X PUT http://localhost:3000/api/inngest  # register background jobs; re-ru
 
 ## Configuration
 
-There is no committed `.env` template, since the file holds real credentials. Required: `DATABASE_URL`, `NUXT_APP_SECRET` (`openssl rand -base64 32`), and `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` for compose. For local development also set `INNGEST_DEV=1`, `INNGEST_BASE_URL=http://localhost:8288`, `NUXT_REDIS_URL=redis://localhost:6379/1` and `NUXT_MEILI_HOST=http://localhost:7700`.
+Copy `.env.example` to `.env` (uncommitted) and fill it in; it already carries the local Inngest values. Required: `DATABASE_URL` and `NUXT_APP_SECRET` (`openssl rand -base64 32`). For local development also set `NUXT_REDIS_URL=redis://localhost:6379/1` and `NUXT_MEILI_HOST=http://localhost:7700`.
 
 - A production build refuses to start with `INNGEST_DEV` set or with default or short (under 32 characters) Inngest keys.
 - Metrics are off unless `ENABLE_OPENTELEMETRY=true`; Alloy forwards them and `logs/*.log` to `MIMIR_PUSH_URL` and `LOKI_PUSH_URL`.
@@ -52,3 +52,11 @@ podman build --secret id=sentry_auth_token,src=<file> \
 ```
 
 The image also ships `.output/migrate.mjs` (applies `drizzle/`) and `.output/inngest-sync.mjs`. `compose.yml` runs the app's dependencies, not the app itself.
+
+No image is published yet (CI publish is deferred), so build it locally. The Sentry args and secret are optional, and the minimal build is `podman build --build-arg GIT_SHA=$(git rev-parse HEAD) -t ghcr.io/ldanieldev/watchd:0.1.0 .`. The production stack's compose file lives in the maintainer's vault note, not in this repo.
+
+Production-relevant variables (all in `.env.example`):
+
+- `NUXT_REGISTRATION`: `open` (default) or `closed`, which allows sign-up only while no users exist.
+- `NUXT_PLEX_SYNC_MODE`: `off` (default), `read-only` or `on`.
+- `NUXT_PLEX_CLIENT_IDENTIFIER`: use a distinct id per deployment so Plex sees each as its own device.
