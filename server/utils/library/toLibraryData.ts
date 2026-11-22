@@ -1,6 +1,7 @@
 import type { CreditPerson } from '../../../shared/types/library'
 import type { Episode, LibraryData, Title, WatchEvent } from '~~/shared/utils/library/types'
 import type { TitleKind } from '../../db/schema/library'
+import { effectiveTitleType } from './effectiveTitleType'
 
 export interface LibraryRows {
   titles: {
@@ -37,10 +38,9 @@ export function toLibraryData(rows: LibraryRows): LibraryData {
 
   const titles: Title[] = rows.titles.map((row) => {
     const settings = settingsByTitle.get(row.id)
-    const detectedType = row.kind === 'movie' ? 'movie' : row.isAnime ? 'anime' : 'tv'
     return compact({
       id: String(row.id),
-      type: row.kind === 'movie' ? 'movie' : settings?.typeOverride ?? detectedType,
+      type: effectiveTitleType(row.kind, row.isAnime, settings?.typeOverride),
       name: row.name,
       tmdbId: row.tmdbId,
       firstAired: row.firstAired ?? '',

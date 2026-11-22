@@ -14,6 +14,8 @@ export const titles = appSchema.table(
     kind: varchar({ length: 8 }).$type<TitleKind>().notNull(),
     tmdbId: integer('tmdb_id').notNull(),
     name: varchar({ length: 500 }).notNull(),
+    originalName: varchar('original_name', { length: 500 }),
+    alternativeNames: jsonb('alternative_names').$type<string[]>(),
     firstAired: varchar('first_aired', { length: 10 }),
     posterPath: varchar('poster_path', { length: 255 }),
     backdropPath: varchar('backdrop_path', { length: 255 }),

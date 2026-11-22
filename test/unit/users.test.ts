@@ -1,7 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { users } from '~~/server/db/schema'
 import { createServerHandlerHarness, event } from './serverHandlerHarness'
+
+const log = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
+const deleteUserSearchDocuments = vi.hoisted(() => vi.fn())
+vi.mock('../../server/utils/logger', () => ({ logger: log }))
+vi.mock('~~/server/utils/search/reindexUserSearch', () => ({ deleteUserSearchDocuments }))
 
 const harness = createServerHandlerHarness()
 const { selectColumns, returningColumns, updateSet, deleteWhere, setUserSession, clearUserSession } = harness.mocks
@@ -15,7 +20,10 @@ const deleteUser = (await import('~~/server/api/users/[id].delete')).default as 
 const owner = { id: 1, email: 'owner@example.com', name: 'Owner' }
 const columnsOf = (spy: typeof selectColumns) => Object.keys(spy.mock.calls[0]?.[0] as object)
 
-beforeEach(() => harness.reset())
+beforeEach(() => {
+  harness.reset()
+  deleteUserSearchDocuments.mockReset().mockResolvedValue(undefined)
+})
 
 describe('GET /api/users/:id', () => {
   const read = (id: string) => getUser(event({ params: { id } }))
@@ -173,6 +181,25 @@ describe('DELETE /api/users/:id', () => {
 
     await expect(deleteUser(event({ params: { id: '1' } }))).resolves.toEqual({ success: true })
     expect(deleteWhere).toHaveBeenCalledWith(eq(users.id, 1))
+  })
+
+  it('deletes the user\'s search documents before the user row', async () => {
+    harness.setSession({ user: owner })
+
+    await deleteUser(event({ params: { id: '1' } }))
+
+    expect(deleteUserSearchDocuments).toHaveBeenCalledWith(1)
+    expect(deleteUserSearchDocuments.mock.invocationCallOrder[0]).toBeLessThan(deleteWhere.mock.invocationCallOrder[0]!)
+  })
+
+  it('still deletes the user when Meilisearch is down', async () => {
+    harness.setSession({ user: owner })
+    deleteUserSearchDocuments.mockRejectedValue(new Error('meili down'))
+
+    await expect(deleteUser(event({ params: { id: '1' } }))).resolves.toEqual({ success: true })
+
+    expect(deleteWhere).toHaveBeenCalledWith(eq(users.id, 1))
+    expect(log.warn).toHaveBeenCalled()
   })
 
   it('clears the session after deleting', async () => {

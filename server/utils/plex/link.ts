@@ -3,6 +3,7 @@ import { episodes, plexConnections, plexItems, watches } from '../../db/schema'
 import type { PlexReport } from '../../db/schema'
 import { chunkForPostgresParameters, queueEnrichment as queueTitleEnrichment } from '../import/writePlays'
 import { logger } from '../logger'
+import { queueSearchReindex } from '../search/searchEvents'
 import { PlexError } from './client'
 import type { PlexServer } from './client'
 import { plexSyncMode } from './config'
@@ -179,7 +180,7 @@ const loadLinkContext = async (userId: number): Promise<PlexLinkContext | null> 
   return connection ? { connection, server: plexServerFor(connection) } : null
 }
 
-/** The first link, or a re-run catch-up, as four retryable steps; each reloads the connection so a retry after a token or section change sees the current row. */
+/** The first link, or a re-run catch-up, as retryable steps; each Plex step reloads the connection so a retry after a token or section change sees the current row, and a search reindex is queued once the item map is rebuilt. */
 export async function runPlexLinkSteps({ userId, rerun, isFinalAttempt, step, loadContext = loadLinkContext }: {
   userId: number
   rerun: boolean
@@ -200,9 +201,17 @@ export async function runPlexLinkSteps({ userId, rerun, isFinalAttempt, step, lo
 
   const rebuilt = await inStep('rebuild-item-map', linkRebuildItemMap)
   if ('skipped' in rebuilt || 'tokenInvalid' in rebuilt) return rebuilt
+  const queueSearchReindexStep = () => step.run('queue-search-reindex', async () => {
+    await queueSearchReindex([userId])
+    return { queued: true }
+  })
   const pulled = await inStep('pull-history', context => linkPullHistory(context, rerun))
-  if ('skipped' in pulled || 'tokenInvalid' in pulled) return pulled
+  if ('skipped' in pulled || 'tokenInvalid' in pulled) {
+    await queueSearchReindexStep()
+    return pulled
+  }
   const pushed = await inStep('push-marks', context => linkPushMarks(context, rebuilt.unwatchedRatingKeys))
+  await queueSearchReindexStep()
   if ('skipped' in pushed || 'tokenInvalid' in pushed) return pushed
   return inStep('save-report', context => linkFinish(context, { pulled, ...pushed }))
 }

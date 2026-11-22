@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { titles, userTitles } from '~~/server/db/schema'
+import { queueSearchReindex } from '~~/server/utils/search/searchEvents'
 
 const settingsSchema = z.object({
   typeOverride: z.enum(['tv', 'anime']).nullable().optional(),
@@ -24,5 +25,6 @@ export default defineEventHandler(async (event) => {
     .insert(userTitles)
     .values({ userId: user.id, titleId, ...parsed.data })
     .onConflictDoUpdate({ target: [userTitles.userId, userTitles.titleId], set: parsed.data }))
+  await queueSearchReindex([user.id])
   return { ok: true }
 })

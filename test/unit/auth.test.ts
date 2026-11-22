@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServerHandlerHarness, event } from './serverHandlerHarness'
 
+const queueSearchReindex = vi.hoisted(() => vi.fn())
+vi.mock('~~/server/utils/search/searchEvents', () => ({ queueSearchReindex }))
+
 const harness = createServerHandlerHarness()
 const { insertValues, updateSet, setUserSession } = harness.mocks
 
@@ -73,6 +76,23 @@ describe('POST /api/auth/register', () => {
     expect(setUserSession).toHaveBeenCalledWith(expect.anything(), {
       user: { id: 'new-id', email: 'a@example.com', name: 'A' }
     })
+  })
+
+  it('sends search/library.changed for the new user so stale documents under a reused id are replaced', async () => {
+    harness.givenDb({ select: [[{ total: 5 }], []], insert: [{ id: 1, email: 'a@example.com', name: 'A' }] })
+
+    await register(bodyEvent({ name: 'A', email: 'a@example.com', password: 'password123' }))
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([1])
+    expect(queueSearchReindex.mock.invocationCallOrder[0]).toBeGreaterThan(insertValues.mock.invocationCallOrder[0]!)
+  })
+
+  it('sends no search event when registration is rejected', async () => {
+    harness.givenDb({ select: [[{ total: 5 }], [{ id: 'existing', password: 'scrypt:whatever' }]] })
+
+    await expect(register(bodyEvent({ name: 'A', email: 'taken@example.com', password: 'password123' }))).rejects.toMatchObject({ statusCode: 409 })
+
+    expect(queueSearchReindex).not.toHaveBeenCalled()
   })
 })
 

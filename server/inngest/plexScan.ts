@@ -5,6 +5,7 @@ import type { PlexScanEventData } from '../utils/inngest/plexScanEvent'
 import { plexSyncMode } from '../utils/plex/config'
 import { loadPlexConnection, plexServerFor } from '../utils/plex/connection'
 import { runPlexScan } from '../utils/plex/scan'
+import { queueSearchReindex } from '../utils/search/searchEvents'
 
 // Cron fan-out is a separate function: a cron event has no userId, so it can't share plex-scan's per-user concurrency key.
 export const plexScanSchedule = inngest.createFunction(
@@ -34,7 +35,9 @@ export const plexScan = inngest.createFunction(
     return step.run('scan-plex', async () => {
       const connection = await loadPlexConnection(userId)
       if (!connection) return { skipped: 'no plex connection' }
-      return runPlexScan({ connection, server: plexServerFor(connection) })
+      const summary = await runPlexScan({ connection, server: plexServerFor(connection) })
+      await queueSearchReindex([userId])
+      return summary
     })
   }
 )

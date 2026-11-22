@@ -3,6 +3,7 @@ import { and, eq, isNotNull, sql } from 'drizzle-orm'
 import { episodes, titles, watches } from '../db/schema'
 import { inngest } from '../utils/inngest/client'
 import { TITLE_ENRICH_EVENT } from '../utils/import/writePlays'
+import { queueSearchReindexForTitle } from '../utils/search/searchEvents'
 import { TmdbNotFoundError, tmdbGet } from '../utils/tmdb/client'
 import { absoluteEpisodeRemaps } from '../utils/tmdb/absoluteEpisodes'
 import { mapMovie, mapTv, type MappedTitle, type RawMovie, type RawSeason, type RawTv } from '../utils/tmdb/mapTitle'
@@ -11,12 +12,12 @@ const EPISODE_CHUNK_SIZE = 500
 
 async function fetchTitle(kind: 'movie' | 'tv', tmdbId: number): Promise<MappedTitle> {
   if (kind === 'tv') {
-    const raw = await tmdbGet<RawTv>(`/tv/${tmdbId}`, { append_to_response: 'aggregate_credits,content_ratings' })
+    const raw = await tmdbGet<RawTv>(`/tv/${tmdbId}`, { append_to_response: 'aggregate_credits,content_ratings,alternative_titles' })
     const seasons: RawSeason[] = []
     for (const season of raw.seasons) seasons.push(await tmdbGet<RawSeason>(`/tv/${tmdbId}/season/${season.season_number}`))
     return mapTv(raw, seasons)
   }
-  const raw = await tmdbGet<RawMovie>(`/movie/${tmdbId}`, { append_to_response: 'credits,release_dates' })
+  const raw = await tmdbGet<RawMovie>(`/movie/${tmdbId}`, { append_to_response: 'credits,release_dates,alternative_titles' })
   const collection = raw.belongs_to_collection
     ? await tmdbGet<{ name: string, parts: { id: number }[] }>(`/collection/${raw.belongs_to_collection.id}`)
     : undefined
@@ -27,6 +28,7 @@ async function writeTitle(titleId: number, mapped: MappedTitle): Promise<void> {
   const { episodes: mappedEpisodes, ...fields } = mapped
   await withQuerySpan('update-enriched-title', () => db.update(titles).set({
     ...fields,
+    originalName: fields.originalName ?? null,
     firstAired: fields.firstAired ?? null,
     posterPath: fields.posterPath ?? null,
     backdropPath: fields.backdropPath ?? null,
@@ -123,6 +125,7 @@ export const enrichTitle = inngest.createFunction(
       }
       await writeTitle(titleId, mapped)
       if (title.kind === 'tv') await remapAbsoluteEpisodeWatches(titleId, mapped.episodes)
+      await queueSearchReindexForTitle(titleId)
       return { titleId, episodes: mapped.episodes.length }
     })
   }

@@ -1,6 +1,7 @@
 import { inArray } from 'drizzle-orm'
 import { titles, watches } from '~~/server/db/schema'
 import { queuePlexPush } from '~~/server/utils/plex/outbound'
+import { queueSearchReindex } from '~~/server/utils/search/searchEvents'
 import { readWatchKeys } from '~~/server/utils/library/watchBody'
 
 export default defineEventHandler(async (event) => {
@@ -17,5 +18,6 @@ export default defineEventHandler(async (event) => {
     .onConflictDoNothing()
     .returning({ id: watches.id, titleId: watches.titleId, season: watches.season, number: watches.number }))
   await queuePlexPush(user.id, inserted.map(row => ({ op: 'mark', titleId: row.titleId, season: row.season, number: row.number })))
+  await queueSearchReindex([user.id])
   return { added: inserted.length }
 })

@@ -2,6 +2,7 @@ import { eq, getTableColumns } from 'drizzle-orm'
 import { z } from 'zod'
 import { users } from '~~/server/db/schema'
 import { isRegistrationOpen } from '~~/server/utils/registration'
+import { queueSearchReindex } from '~~/server/utils/search/searchEvents'
 
 const registerSchema = z.object({
   name: z.string().min(1),
@@ -56,6 +57,7 @@ export default defineEventHandler(async (event) => {
       .returning(userColumns)
       .then(r => r[0]!)
   )
+  await queueSearchReindex([user.id])
 
   await setUserSession(event, {
     user: {

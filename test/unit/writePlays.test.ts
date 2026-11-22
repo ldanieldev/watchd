@@ -4,7 +4,7 @@ import { titles, userTitles, watches } from '~~/server/db/schema'
 const send = vi.fn()
 vi.mock('~~/server/utils/inngest/client', () => ({ inngest: { send } }))
 
-const { importPlays } = await import('~~/server/utils/import/writePlays')
+const { importPlays, queueEnrichment } = await import('~~/server/utils/import/writePlays')
 
 const play = (tmdbId: number, minute: number) => ({
   kind: 'movie' as const, tmdbId, watchedAt: new Date(`2026-01-01T10:${String(minute).padStart(2, '0')}:00Z`), titleName: `Movie ${tmdbId}`
@@ -128,5 +128,22 @@ describe('importPlays', () => {
     const summary = await importPlays(7, { plays: [play(10, 1)], skipped: [] }, 'floppy')
 
     expect(summary).not.toHaveProperty('titleSettings')
+  })
+})
+
+describe('queueEnrichment', () => {
+  it('sends events without an id by default', async () => {
+    await queueEnrichment([4, 9])
+
+    expect(send).toHaveBeenCalledWith([{ name: 'library/title.enrich', data: { titleId: 4 } }, { name: 'library/title.enrich', data: { titleId: 9 } }])
+  })
+
+  it('gives each event the id the caller derives from its title', async () => {
+    await queueEnrichment([4, 9], { eventIdForTitle: titleId => `backfill-names-${titleId}` })
+
+    expect(send).toHaveBeenCalledWith([
+      { id: 'backfill-names-4', name: 'library/title.enrich', data: { titleId: 4 } },
+      { id: 'backfill-names-9', name: 'library/title.enrich', data: { titleId: 9 } }
+    ])
   })
 })

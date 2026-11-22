@@ -5,6 +5,8 @@ import { createServerHandlerHarness, event } from './serverHandlerHarness'
 
 const log = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 const send = vi.hoisted(() => vi.fn())
+const queueSearchReindex = vi.hoisted(() => vi.fn())
+vi.mock('~~/server/utils/search/searchEvents', () => ({ queueSearchReindex }))
 const registry = vi.hoisted(() => ({ startFor: vi.fn(), stopFor: vi.fn(), statusFor: vi.fn() }))
 vi.mock('../../server/utils/logger', () => ({ logger: log }))
 vi.mock('~~/server/utils/inngest/client', () => ({ inngest: { send } }))
@@ -62,6 +64,7 @@ beforeEach(async () => {
   syncMode = 'on'
   clientIdentifier = 'test-client-id'
   send.mockResolvedValue(undefined)
+  queueSearchReindex.mockResolvedValue(undefined)
   registry.startFor.mockResolvedValue(undefined)
   registry.statusFor.mockReturnValue(undefined)
   state = createFakePlexState({
@@ -216,6 +219,16 @@ describe('plex routes: connect', () => {
     expect(harness.sessionNow().secure).toEqual({})
     expect(storage.size).toBe(0)
     expect(harness.sessionNow().user).toEqual(USER)
+  })
+
+  it('sends search/library.changed for the user after the connection replace commits', async () => {
+    harness.setSession(signedInSession())
+    harness.givenDb({ select: [[connectionRow({ serverMachineId: 'machine-old' })], [{ latest: null }], []], insert: [[{ id: 6 }]] })
+
+    await connectPost(event({ body }))
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([USER.id])
+    expect(queueSearchReindex.mock.invocationCallOrder[0]).toBeGreaterThan(harness.mocks.insertValues.mock.invocationCallOrder[0]!)
   })
 
   it('starts a new connection\'s history cursor at the newest imported play, so the first pull skips older Plex history', async () => {
@@ -405,11 +418,21 @@ describe('plex routes: management', () => {
     expect(send).not.toHaveBeenCalled()
   })
 
+  it('sends search/library.changed for the user after connection.delete restores the unmarked plays', async () => {
+    harness.givenDb({ select: [[connectionRow()], []], delete: [{ id: 5 }] })
+
+    await connectionDelete(event())
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([USER.id])
+    expect(queueSearchReindex.mock.invocationCallOrder[0]).toBeGreaterThan(harness.mocks.deleteWhere.mock.invocationCallOrder[0]!)
+  })
+
   it('connection.delete without a connection changes nothing', async () => {
     harness.givenDb({ select: [[]] })
     expect(await connectionDelete(event())).toEqual({ success: true })
     expect(harness.mocks.updateSet).not.toHaveBeenCalled()
     expect(harness.mocks.deleteWhere).not.toHaveBeenCalled()
+    expect(queueSearchReindex).not.toHaveBeenCalled()
   })
 
   it('unmatched.get lists unmatched items with their library and the unresolved history count', async () => {

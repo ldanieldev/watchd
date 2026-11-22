@@ -3,6 +3,8 @@ import { strToU8 } from 'fflate'
 import { createServerHandlerHarness, event, type MultipartPart } from './serverHandlerHarness'
 
 const importPlays = vi.fn()
+const queueSearchReindex = vi.hoisted(() => vi.fn())
+vi.mock('~~/server/utils/search/searchEvents', () => ({ queueSearchReindex }))
 vi.mock('~~/server/utils/import/writePlays', () => ({ importPlays }))
 vi.mock('~~/server/utils/inngest/client', () => ({ inngest: { send: vi.fn() } }))
 
@@ -29,10 +31,27 @@ const summary = { added: 1, duplicates: 0, skipped: [], titlesQueued: 1 }
 beforeEach(() => {
   harness.reset()
   importPlays.mockReset().mockResolvedValue(summary)
+  queueSearchReindex.mockReset().mockResolvedValue(undefined)
   harness.setSession({ user: { id: 7 } })
 })
 
 describe('POST /api/import/:source', () => {
+  it('sends search/library.changed for the user after the import', async () => {
+    await runImport(upload('floppy', [file('f.csv', floppyCsv)]))
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([7])
+    expect(queueSearchReindex.mock.invocationCallOrder[0]).toBeGreaterThan(importPlays.mock.invocationCallOrder[0]!)
+  })
+
+  it('still sends search/library.changed when the import fails partway, and rethrows', async () => {
+    const partwayFailure = new Error('connection lost after the first batch')
+    importPlays.mockRejectedValue(partwayFailure)
+
+    await expect(runImport(upload('floppy', [file('f.csv', floppyCsv)]))).rejects.toBe(partwayFailure)
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([7])
+  })
+
   it('rejects a request without a session with 401', async () => {
     harness.setSession({})
 

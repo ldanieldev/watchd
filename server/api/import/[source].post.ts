@@ -3,6 +3,7 @@ import { readTraktUpload } from '~~/server/utils/import/trakt'
 import { NotAnExportError, UnsupportedBackupVersionError, type ParsedImport } from '~~/server/utils/import/types'
 import { parseWatchdBackup } from '~~/server/utils/import/watchdBackup'
 import { importPlays } from '~~/server/utils/import/writePlays'
+import { queueSearchReindex } from '~~/server/utils/search/searchEvents'
 import { BodyTooLargeError, readBodyWithin } from '~~/server/utils/import/readBodyWithin'
 
 const sources = {
@@ -59,5 +60,9 @@ export default defineEventHandler(async (event) => {
     throw error
   }
 
-  return importPlays(user.id, parsed, source as Source)
+  try {
+    return await importPlays(user.id, parsed, source as Source)
+  } finally {
+    await queueSearchReindex([user.id])
+  }
 })

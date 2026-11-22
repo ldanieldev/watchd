@@ -11,13 +11,23 @@ import type { PlexScanItemState, PlexScanStore } from '~~/server/utils/plex/scan
 const log = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 const send = vi.hoisted(() => vi.fn())
 vi.mock('../../server/utils/logger', () => ({ logger: log }))
-vi.mock('~~/server/utils/inngest/client', () => ({ inngest: { send } }))
+vi.mock('~~/server/utils/inngest/client', () => ({
+  inngest: { send, createFunction: (config: unknown, handler: unknown) => ({ config, handler }) }
+}))
+const queueSearchReindex = vi.hoisted(() => vi.fn())
+vi.mock('~~/server/utils/search/searchEvents', () => ({ queueSearchReindex }))
+const scanOverride = vi.hoisted(() => ({ run: null as null | (() => Promise<unknown>) }))
+vi.mock('~~/server/utils/plex/scan', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('~~/server/utils/plex/scan')>()
+  return { ...actual, runPlexScan: (...args: Parameters<typeof actual.runPlexScan>) => scanOverride.run ? scanOverride.run() : actual.runPlexScan(...args) }
+})
 let syncMode = 'on'
 vi.stubGlobal('useRuntimeConfig', () => ({ plex: { syncMode, clientIdentifier: 'test-client-id' } }))
 
 const harness = createServerHandlerHarness()
 
 const { runPlexScan } = await import('~~/server/utils/plex/scan')
+const { plexScan } = await import('~~/server/inngest/plexScan')
 const { PlexServer, PlexError } = await import('~~/server/utils/plex/client')
 type Handler = (e: unknown) => Promise<unknown>
 const listUnmarked = (await import('~~/server/api/plex/unmarked/index.get')).default as Handler
@@ -412,6 +422,8 @@ describe('Plex unmarked routes', () => {
     expect(harness.mocks.deleteWhere).toHaveBeenCalledTimes(1)
     expect(send).toHaveBeenCalledTimes(1)
     expect(send).toHaveBeenCalledWith({ name: 'plex/push', data: { userId: USER_ID, ops: [{ op: 'mark', titleId: SHOW_TITLE_ID, season: 2, number: 7 }] } })
+    expect(queueSearchReindex).toHaveBeenCalledWith([USER_ID])
+    expect(queueSearchReindex.mock.invocationCallOrder[0]).toBeGreaterThan(harness.mocks.updateSet.mock.invocationCallOrder[0]!)
   })
 
   it('returns 404 for a row of another user\'s connection and changes nothing', async () => {
@@ -461,5 +473,44 @@ describe('Plex unmarked routes', () => {
     harness.givenDb({ select: [[]] })
 
     await expect(listUnmarked(event())).resolves.toEqual({ items: [] })
+  })
+})
+
+describe('plex-scan Inngest function', () => {
+  const handler = (plexScan as unknown as { handler: (input: unknown) => Promise<unknown> }).handler
+  const step = { run: <Result>(_id: string, run: () => Promise<Result>) => run() }
+  const storedConnection = { id: 3, userId: USER_ID, serverUrl: 'http://plex.invalid:32400', serverUrlOverride: null, serverToken: 'secret-token' }
+
+  beforeEach(() => {
+    syncMode = 'on'
+    vi.clearAllMocks()
+    harness.reset()
+    scanOverride.run = async () => ({ scanned: 1 })
+  })
+
+  afterEach(() => {
+    scanOverride.run = null
+  })
+
+  it('sends search/library.changed for the user after the scan', async () => {
+    harness.givenDb({ select: [[storedConnection]] })
+
+    await handler({ event: { data: { userId: USER_ID } }, step })
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([USER_ID])
+  })
+
+  it('sends nothing when there is no connection to scan', async () => {
+    harness.givenDb({ select: [[]] })
+
+    expect(await handler({ event: { data: { userId: USER_ID } }, step })).toEqual({ skipped: 'no plex connection' })
+    expect(queueSearchReindex).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing when sync is off', async () => {
+    syncMode = 'off'
+
+    expect(await handler({ event: { data: { userId: USER_ID } }, step })).toEqual({ skipped: 'sync off' })
+    expect(queueSearchReindex).not.toHaveBeenCalled()
   })
 })

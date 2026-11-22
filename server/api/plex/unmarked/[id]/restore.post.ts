@@ -3,6 +3,7 @@ import { plexUnmarked } from '~~/server/db/schema'
 import { loadPlexConnection } from '~~/server/utils/plex/connection'
 import { queuePlexPush } from '~~/server/utils/plex/outbound'
 import { drizzlePlexScanStore } from '~~/server/utils/plex/scan'
+import { queueSearchReindex } from '~~/server/utils/search/searchEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -21,5 +22,6 @@ export default defineEventHandler(async (event) => {
 
   const restored = await drizzlePlexScanStore.restorePlays(user.id, connection.id, unmarked)
   await queuePlexPush(user.id, [{ op: 'mark', titleId: unmarked.titleId, season: unmarked.season, number: unmarked.number }])
+  await queueSearchReindex([user.id])
   return { restored }
 })

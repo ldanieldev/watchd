@@ -59,9 +59,9 @@ async function titleIdsFor(stubs: TitleStub[]) {
   return { ids, stalePendingIds }
 }
 
-export async function queueEnrichment(titleIds: number[]): Promise<void> {
+export async function queueEnrichment(titleIds: number[], { eventIdForTitle }: { eventIdForTitle?: (titleId: number) => string } = {}): Promise<void> {
   for (const batch of chunkForPostgresParameters(titleIds, 500)) {
-    await inngest.send(batch.map(titleId => ({ name: TITLE_ENRICH_EVENT, data: { titleId } })))
+    await inngest.send(batch.map(titleId => ({ ...(eventIdForTitle && { id: eventIdForTitle(titleId) }), name: TITLE_ENRICH_EVENT, data: { titleId } })))
   }
 }
 

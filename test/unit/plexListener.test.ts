@@ -284,6 +284,7 @@ const REGISTRY_CONNECTION = { ...CONNECTION, id: 5, ownerAccountId: 1, plexUsern
 function registryHarness(overrides: Partial<Parameters<typeof createListenerRegistry>[0]> = {}) {
   const sockets: FakeSocket[] = []
   const pull = vi.fn(async (..._args: unknown[]) => {})
+  const queueSearchReindex = vi.fn(async (_userId: number) => {})
   const sessions = vi.fn(async () => [] as { sessionKey: string, ratingKey: string, userId?: number, userTitle?: string, state: string, viewOffset: number }[])
   const registry = createListenerRegistry({
     loadConnection: async () => REGISTRY_CONNECTION,
@@ -294,11 +295,12 @@ function registryHarness(overrides: Partial<Parameters<typeof createListenerRegi
     },
     pullHistory: pull,
     flagTokenInvalid: async () => {},
+    queueSearchReindex,
     sessions,
     resolveItems: async (_userId, _connectionId, ratingKeys) => new Map(ratingKeys.filter(key => key !== '999').map(key => [key, { titleId: Number(key), type: 'tv' as const, name: `Title ${key}`, season: null, number: null }])),
     ...overrides
   })
-  return { registry, sockets, pull, sessions }
+  return { registry, sockets, pull, sessions, queueSearchReindex }
 }
 
 describe('listenerRegistry', () => {
@@ -314,6 +316,19 @@ describe('listenerRegistry', () => {
     await vi.advanceTimersByTimeAsync(10 * 60_000)
     expect(pull).not.toHaveBeenCalled()
     expect(registry.statusFor(42)).toBeNull()
+  })
+
+  it('sends search/library.changed for the user after a successful pull, not after a failed one', async () => {
+    const pull = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('boom'))
+    const { registry, queueSearchReindex } = registryHarness({ pullHistory: pull })
+    await registry.startFor(42)
+
+    await vi.advanceTimersByTimeAsync(5 * 60_000)
+    expect(queueSearchReindex).toHaveBeenCalledExactlyOnceWith(42)
+    await vi.advanceTimersByTimeAsync(5 * 60_000)
+    expect(pull).toHaveBeenCalledTimes(2)
+    expect(queueSearchReindex).toHaveBeenCalledTimes(1)
+    registry.stopAll()
   })
 
   it('startFor replaces an existing listener for the same user', async () => {

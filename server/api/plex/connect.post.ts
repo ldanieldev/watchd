@@ -6,6 +6,7 @@ import { getPlexUser, listOwnedServers, PlexError, PlexServer, pickConnection } 
 import { loadPlexConnection } from '~~/server/utils/plex/connection'
 import { drizzlePlexLinkStore } from '~~/server/utils/plex/link'
 import { restoreAllUnmarkedPlays } from '~~/server/utils/plex/scan'
+import { queueSearchReindex } from '~~/server/utils/search/searchEvents'
 import { PLEX_LINK_EVENT } from '~~/server/utils/inngest/plexLinkEvent'
 import type { PlexLinkEventData } from '~~/server/utils/inngest/plexLinkEvent'
 import {
@@ -78,6 +79,7 @@ export default defineEventHandler(async (event) => {
       }
       await tx.insert(plexConnections).values({ userId: user.id, ...signedIn, serverMachineId: resource.machineId, sectionIds, historyCursor })
     }))
+    await queueSearchReindex([user.id])
   }
   await writePlexSignIn(event, null)
   await deleteSignInAccountToken(user.id, pinId)

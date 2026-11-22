@@ -3,6 +3,7 @@ import { plexConnections } from '~~/server/db/schema'
 import { loadPlexConnection } from '~~/server/utils/plex/connection'
 import { listenerRegistry } from '~~/server/utils/plex/listener'
 import { restoreAllUnmarkedPlays } from '~~/server/utils/plex/scan'
+import { queueSearchReindex } from '~~/server/utils/search/searchEvents'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -13,5 +14,6 @@ export default defineEventHandler(async (event) => {
     await restoreAllUnmarkedPlays(tx, user.id, connection.id)
     await tx.delete(plexConnections).where(eq(plexConnections.id, connection.id))
   }))
+  await queueSearchReindex([user.id])
   return { success: true }
 })

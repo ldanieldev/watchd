@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { plexItems, titles, userTitles } from '../../db/schema'
 import { logger } from '../logger'
 import { recordPlexListenerReconnect } from '../metrics'
+import { queueSearchReindex } from '../search/searchEvents'
 import { PlexError } from './client'
 import type { PlexServer } from './client'
 import { plexClientIdentifier, plexSyncMode } from './config'
@@ -203,6 +204,7 @@ export interface RegistryDeps {
   connect(url: string, token: string): ListenerSocket
   pullHistory(connection: PlexConnectionRow, server: PlexServer): Promise<unknown>
   flagTokenInvalid(connectionId: number): Promise<void>
+  queueSearchReindex(userId: number): Promise<void>
   sessions(connection: PlexConnectionRow): Promise<PlexSession[]>
   resolveItems(userId: number, connectionId: number, ratingKeys: string[]): Promise<Map<string, ResolvedItem>>
 }
@@ -229,6 +231,7 @@ const defaultDeps: RegistryDeps = {
   connect: connectPlexWebSocket,
   pullHistory,
   flagTokenInvalid: drizzlePlexOutboundStore.flagTokenInvalid,
+  queueSearchReindex: userId => queueSearchReindex([userId]),
   sessions: connection => plexServerFor(connection).sessions(),
   resolveItems: drizzleResolveItems
 }
@@ -245,6 +248,7 @@ export function createListenerRegistry(overrides: Partial<RegistryDeps> = {}) {
     if (!connection || connection.tokenInvalid) return
     try {
       await deps.pullHistory(connection, plexServerFor(connection))
+      await deps.queueSearchReindex(userId)
     } catch (error) {
       if (error instanceof PlexError && error.kind === 'unauthorized') {
         await deps.flagTokenInvalid(connection.id)

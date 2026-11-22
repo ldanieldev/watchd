@@ -5,6 +5,8 @@ import { createServerHandlerHarness, event } from './serverHandlerHarness'
 
 const log = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 const send = vi.hoisted(() => vi.fn())
+const queueSearchReindex = vi.hoisted(() => vi.fn())
+vi.mock('~~/server/utils/search/searchEvents', () => ({ queueSearchReindex }))
 vi.mock('../../server/utils/logger', () => ({ logger: log }))
 vi.mock('~~/server/utils/inngest/client', () => ({ inngest: { send } }))
 let syncMode = 'on'
@@ -29,6 +31,7 @@ const deleteKey = { ...episodeWatch }
 beforeEach(() => {
   syncMode = 'on'
   send.mockReset().mockResolvedValue(undefined)
+  queueSearchReindex.mockReset().mockResolvedValue(undefined)
   harness.reset()
   harness.setSession({ user: { id: 7 } })
 })
@@ -66,6 +69,14 @@ describe('POST /api/library/watches', () => {
     })])
   })
 
+  it('sends search/library.changed for the user after adding watches', async () => {
+    harness.givenDb({ select: [[{ id: 5 }]], insert: [{ id: 1 }] })
+
+    await addWatches(event({ body: { watches: [episodeWatch] } }))
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([7])
+  })
+
   it('stores a movie watch without season or number', async () => {
     harness.givenDb({ select: [[{ id: 9 }]], insert: [{ id: 1 }] })
 
@@ -87,6 +98,14 @@ describe('POST /api/library/watches/delete', () => {
 
     await expect(removeWatches(event({ body: { watches: [episodeWatch] } }))).resolves.toEqual({ removed: 2 })
     expect(deleteWhere).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends search/library.changed for the user after removing watches', async () => {
+    harness.givenDb({ delete: [{ id: 1, plexHistoryId: null }] })
+
+    await removeWatches(event({ body: { watches: [episodeWatch] } }))
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([7])
   })
 
   it('only deletes watches that are not already soft-deleted', async () => {
@@ -132,6 +151,14 @@ describe('PUT /api/library/titles/:id/settings', () => {
     await saveSettings(event({ params: { id: '5' }, body: { typeOverride: 'anime' } }))
 
     expect(insertValues).toHaveBeenCalledWith(expect.objectContaining({ userId: 7, titleId: 5, typeOverride: 'anime' }))
+  })
+
+  it('sends search/library.changed for the user after saving settings', async () => {
+    harness.givenDb({ select: [[{ kind: 'tv' }]] })
+
+    await saveSettings(event({ params: { id: '5' }, body: { typeOverride: 'anime' } }))
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([7])
   })
 })
 

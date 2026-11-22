@@ -45,6 +45,8 @@ interface RawTitleBase {
 
 export interface RawTv extends RawTitleBase {
   name: string
+  original_name?: string
+  alternative_titles?: { results: { title: string }[] }
   first_air_date: string
   networks: RawNamed[]
   created_by: RawPerson[]
@@ -57,6 +59,8 @@ export interface RawTv extends RawTitleBase {
 
 export interface RawMovie extends RawTitleBase {
   title: string
+  original_title?: string
+  alternative_titles?: { titles: { title: string }[] }
   release_date: string
   runtime: number | null
   belongs_to_collection: { id: number } | null
@@ -82,6 +86,8 @@ export interface RawSeason {
 
 export interface MappedTitle {
   name: string
+  originalName?: string
+  alternativeNames: string[]
   firstAired?: string
   posterPath?: string
   backdropPath?: string
@@ -161,6 +167,13 @@ function baseExtra(raw: RawTitleBase): Omit<TitleExtra, 'seasons' | 'certificati
   }
 }
 
+function mapNames(name: string, originalName: string | undefined, alternatives: { title: string }[] | undefined) {
+  const distinctOriginal = originalName && originalName !== name ? originalName : undefined
+  const alternativeNames = [...new Set((alternatives ?? []).map(alternative => alternative.title))]
+    .filter(title => title && title !== name && title !== distinctOriginal)
+  return { name, originalName: distinctOriginal, alternativeNames }
+}
+
 function toSeasonDetail(season: { season_number: number, name: string, poster_path: string | null, overview: string }): SeasonDetail {
   return { season: season.season_number, name: season.name, posterPath: optional(season.poster_path), overview: optional(season.overview) }
 }
@@ -169,7 +182,7 @@ export function mapTv(raw: RawTv, seasons: RawSeason[]): MappedTitle {
   const crewJobs = raw.aggregate_credits.crew.flatMap(person => (person.jobs ?? []).map(job => toCreditPerson(person, job.job)))
   return {
     ...baseFields(raw),
-    name: raw.name,
+    ...mapNames(raw.name, raw.original_name, raw.alternative_titles?.results),
     firstAired: optional(raw.first_air_date),
     runtimeMinutes: optional(raw.episode_run_time[0] ?? raw.last_episode_to_air?.runtime),
     isAnime: isAnimeSeries(raw.genres.map(genre => genre.id), raw.origin_country),
@@ -204,7 +217,7 @@ function movieCertification(releaseDates: RawMovie['release_dates']): string | u
 export function mapMovie(raw: RawMovie, collection?: TitleCollection): MappedTitle {
   return {
     ...baseFields(raw),
-    name: raw.title,
+    ...mapNames(raw.title, raw.original_title, raw.alternative_titles?.titles),
     firstAired: optional(raw.release_date),
     runtimeMinutes: optional(raw.runtime),
     isAnime: false,

@@ -58,6 +58,39 @@ describe('mapTv', () => {
   })
 })
 
+describe('title names', () => {
+  it('maps original_name and alternative_titles.results for a show', () => {
+    const mapped = mapTv({
+      ...rawShow,
+      name: 'Attack on Titan',
+      original_name: '進撃の巨人',
+      alternative_titles: { results: [{ title: 'Shingeki no Kyojin' }, { title: 'AOT' }, { title: 'Attack on Titan' }, { title: 'AOT' }] }
+    }, [])
+
+    expect(mapped.originalName).toBe('進撃の巨人')
+    expect(mapped.alternativeNames).toEqual(['Shingeki no Kyojin', 'AOT'])
+  })
+
+  it('maps original_title and alternative_titles.titles for a film', () => {
+    const mapped = mapMovie({
+      ...rawMovie,
+      title: 'Amélie',
+      original_title: 'Le Fabuleux Destin d\'Amélie Poulain',
+      alternative_titles: { titles: [{ title: 'Amélie Poulain' }] }
+    })
+
+    expect(mapped.originalName).toBe('Le Fabuleux Destin d\'Amélie Poulain')
+    expect(mapped.alternativeNames).toEqual(['Amélie Poulain'])
+  })
+
+  it('gives [] when TMDB returns no alternative titles', () => {
+    const mapped = mapTv({ ...rawShow, name: 'Frieren', original_name: 'Frieren' }, [])
+
+    expect(mapped.alternativeNames).toEqual([])
+    expect(mapped.originalName).toBeUndefined()
+  })
+})
+
 describe('mapMovie', () => {
   it('never flags a film as anime', () => {
     expect(mapMovie(rawMovie).isAnime).toBe(false)

@@ -11,6 +11,8 @@ vi.mock('../../server/utils/logger', () => ({ logger: log }))
 vi.mock('~~/server/utils/inngest/client', () => ({
   inngest: { send: vi.fn(), createFunction: (config: unknown, handler: unknown) => ({ config, handler }) }
 }))
+const queueSearchReindex = vi.hoisted(() => vi.fn())
+vi.mock('~~/server/utils/search/searchEvents', () => ({ queueSearchReindex }))
 const loadPlexConnection = vi.hoisted(() => vi.fn())
 vi.mock('~~/server/utils/plex/connection', () => ({ loadPlexConnection, plexServerFor: () => ({}) }))
 let syncMode = 'on'
@@ -230,6 +232,56 @@ describe('runPlexLink', () => {
     expect(log.info.mock.calls.filter(([, message]) => message === 'plex link finished')).toEqual([[expect.objectContaining({ userId: USER_ID, outcome: 'ok', pushed: 0, errors: 0 }), 'plex link finished']])
   })
 
+  it('sends search/library.changed for the user after the history pull and pushes, before saving the report', async () => {
+    const world = memoryWorld([play(FILM_A, T)])
+    state.items = [film('10', 111, 1)]
+    let reportWhenQueued: unknown = 'not queued'
+    queueSearchReindex.mockImplementationOnce(async () => {
+      reportWhenQueued = world.report
+    })
+
+    await runPlexLink({ connection, server, rerun: false, ...world.stores, ...world })
+
+    expect(queueSearchReindex).toHaveBeenCalledWith([USER_ID])
+    expect(reportWhenQueued).toBeUndefined()
+    expect(world.report).toBeDefined()
+  })
+
+  it.each([
+    ['the connection is gone', () => null],
+    ['Plex rejects the token', (context: LinkContext) => {
+      state.token = 'rotated'
+      return context
+    }]
+  ])('still sends search/library.changed when the item map was rebuilt but the history pull ends because %s', async (_label, laterContext) => {
+    const world = memoryWorld()
+    state.items = [film('10', 111, 1)]
+    const context: LinkContext = { connection, server, ...world.stores, ...world }
+    const loadContext = vi.fn<(userId: number) => Promise<LinkContext | null>>()
+      .mockResolvedValueOnce(context)
+      .mockImplementation(async () => laterContext(context))
+    const stepIds: string[] = []
+    const step = { run: async <Result>(id: string, run: () => Promise<Result>) => {
+      stepIds.push(id)
+      return run()
+    } }
+
+    const outcome = await runPlexLinkSteps({ userId: USER_ID, rerun: false, isFinalAttempt: true, step, loadContext })
+
+    expect(outcome).not.toHaveProperty('finishedAt')
+    expect(stepIds).toEqual(['rebuild-item-map', 'pull-history', 'queue-search-reindex'])
+    expect(queueSearchReindex).toHaveBeenCalledWith([USER_ID])
+  })
+
+  it('does not send search/library.changed when Plex rejects the token', async () => {
+    const world = memoryWorld()
+    state.token = 'rotated'
+
+    await runPlexLink({ connection, server, rerun: false, ...world.stores, ...world })
+
+    expect(queueSearchReindex).not.toHaveBeenCalled()
+  })
+
   it('does nothing when sync is off', async () => {
     syncMode = 'off'
     const world = memoryWorld([play(FILM_A, T)])
@@ -323,6 +375,7 @@ describe('plex-link Inngest function', () => {
     expect(stepIds).toEqual(['rebuild-item-map'])
     expect(loadPlexConnection).toHaveBeenCalledWith(USER_ID)
     expect(log.info).toHaveBeenCalledWith({ userId: USER_ID, outcome: 'no-connection' }, 'plex link finished')
+    expect(queueSearchReindex).not.toHaveBeenCalled()
   })
 
   it('does nothing when sync is off', async () => {
