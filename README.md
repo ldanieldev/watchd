@@ -48,7 +48,7 @@ bun run db:studio      # Postgres UI
 ```bash
 podman build --secret id=sentry_auth_token,src=<file> \
   --build-arg SENTRY_UPLOAD_SOURCEMAPS=true --build-arg SENTRY_DSN=... --build-arg SENTRY_ORG=... \
-  --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t watchd .
+  --build-arg GIT_SHA=$(git rev-parse HEAD) -t watchd .
 ```
 
 The image also ships `.output/migrate.mjs` (applies `drizzle/`) and `.output/inngest-sync.mjs`. `compose.yml` runs the app's dependencies, not the app itself.
@@ -58,5 +58,6 @@ No image is published yet (CI publish is deferred), so build it locally. The Sen
 Production-relevant variables (all in `.env.example`):
 
 - `NUXT_REGISTRATION`: `open` (default) or `closed`, which allows sign-up only while no users exist.
+- `NUXT_TRUST_PROXY`: `true` only behind a reverse proxy you control; rate limiting then keys on the last `X-Forwarded-For` hop.
 - `NUXT_PLEX_SYNC_MODE`: `off` (default), `read-only` or `on`.
 - `NUXT_PLEX_CLIENT_IDENTIFIER`: use a distinct id per deployment so Plex sees each as its own device.
