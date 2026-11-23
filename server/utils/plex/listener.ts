@@ -117,7 +117,7 @@ export class PlexListener {
     socket.onopen = () => {
       this.attempt = 0
       this.setStatus('connected')
-      logger.warn({ userId: this.connection.userId }, 'plex listener connected')
+      logger.info({ userId: this.connection.userId }, 'plex listener connected')
       this.requestPlaybackChange()
     }
     socket.onmessage = message => this.handleMessage(message.data)
