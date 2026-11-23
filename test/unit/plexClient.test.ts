@@ -12,7 +12,7 @@ vi.mock('../../server/utils/logger', () => ({ logger: log }))
 const runtimePlex = { syncMode: 'on', clientIdentifier: 'test-client-id' }
 vi.stubGlobal('useRuntimeConfig', () => ({ plex: runtimePlex }))
 
-const { PlexError, PlexServer, createPin, checkPin, getPlexUser, listOwnedServers, pickConnection, setPlexTvBaseUrl } = await import('../../server/utils/plex/client')
+const { PlexError, PlexServer, createPin, checkPin, getPlexUser, listHomeProfiles, listServers, switchHomeProfile, pickConnection, setPlexTvBaseUrl } = await import('../../server/utils/plex/client')
 const { plexSyncMode } = await import('../../server/utils/plex/config')
 
 const TOKEN = 'secret-token-abc123'
@@ -90,19 +90,121 @@ describe('plex.tv', () => {
     expect(await checkPin(4242, 'ABCD')).toBe(TOKEN)
   })
 
-  it('getPlexUser reads username and homeAdmin, and maps a bad token to unauthorized', async () => {
-    expect(await getPlexUser(TOKEN)).toEqual({ username: 'synthetic-owner', homeAdmin: true })
+  it('getPlexUser reads id, username, title and homeAdmin, and maps a bad token to unauthorized', async () => {
+    expect(await getPlexUser(TOKEN)).toEqual({ id: 1, username: 'synthetic-owner', title: 'Synthetic Owner', homeAdmin: true })
     await expect(getPlexUser('wrong-token')).rejects.toMatchObject({ kind: 'unauthorized', status: 401 })
   })
 
-  it('listOwnedServers keeps only owned resources that provide a server', async () => {
+  it('getPlexUser reads a managed profile with an empty username', async () => {
+    state.profiles['managed-token'] = {
+      user: { id: 342461108, username: '', title: 'Anese', homeAdmin: false },
+      resources: []
+    }
+    expect(await getPlexUser('managed-token')).toEqual({ id: 342461108, username: '', title: 'Anese', homeAdmin: false })
+  })
+
+  it('listServers keeps owned servers and home-shared servers, dropping non-servers and other shares', async () => {
     const connections = [{ uri: 'https://a.example:32400', local: true, relay: false }]
     state.resources = [
-      { name: 'Mine', clientIdentifier: 'm1', provides: 'server,player', owned: true, accessToken: 'tok-m1', connections },
-      { name: 'Shared', clientIdentifier: 'm2', provides: 'server', owned: false, accessToken: 'tok-m2', connections },
-      { name: 'Phone', clientIdentifier: 'c1', provides: 'client,player', owned: true, accessToken: 'tok-c1', connections }
+      { name: 'Mine', clientIdentifier: 'm1', provides: 'server,player', owned: true, home: false, accessToken: 'tok-m1', connections },
+      { name: 'Home', clientIdentifier: 'm2', provides: 'server', owned: false, home: true, accessToken: 'tok-m2', connections },
+      { name: 'Shared', clientIdentifier: 'm3', provides: 'server', owned: false, home: false, accessToken: 'tok-m3', connections },
+      { name: 'Phone', clientIdentifier: 'c1', provides: 'client,player', owned: true, home: false, accessToken: 'tok-c1', connections }
     ]
-    expect(await listOwnedServers(TOKEN)).toEqual([{ machineId: 'm1', name: 'Mine', accessToken: 'tok-m1', connections }])
+    expect(await listServers(TOKEN)).toEqual([
+      { machineId: 'm1', name: 'Mine', owned: true, accessToken: 'tok-m1', connections },
+      { machineId: 'm2', name: 'Home', owned: false, accessToken: 'tok-m2', connections }
+    ])
+  })
+
+  it('listServers answers per token for a switched profile', async () => {
+    state.profiles['managed-token'] = {
+      user: { id: 5, username: '', title: 'Anese', homeAdmin: false },
+      resources: [{ name: 'Home', clientIdentifier: 'm2', provides: 'server', owned: false, home: true, accessToken: 'tok-managed', connections: [] }]
+    }
+    expect(await listServers('managed-token')).toEqual([{ machineId: 'm2', name: 'Home', owned: false, accessToken: 'tok-managed', connections: [] }])
+  })
+
+  describe('home profiles', () => {
+    const PIN = '4821'
+    beforeEach(() => {
+      state.homeUsers = [
+        { id: 342461106, title: 'Guest', username: '', admin: false, restricted: false, protected: false, guest: true },
+        { id: 342461108, title: 'Anese', username: '', admin: false, restricted: true, protected: true, guest: false, pin: PIN },
+        { id: 7742299, title: 'Lee', username: 'lee', admin: true, restricted: false, protected: false, guest: false },
+        { id: 9, title: 'Bea', username: '', admin: false, restricted: true, protected: false, guest: false },
+        { id: 10, title: 'Mom & Dad', username: '', admin: false, restricted: true, protected: false, guest: false },
+        { id: 11, title: 'Kid > Teen', username: '', admin: false, restricted: true, protected: false, guest: false }
+      ]
+      state.profiles['managed-token'] = { user: { id: 342461108, username: '', title: 'Anese', homeAdmin: false }, resources: [] }
+      state.profiles['open-token'] = { user: { id: 9, username: '', title: 'Bea', homeAdmin: false }, resources: [] }
+    })
+
+    it('listHomeProfiles drops the guest, puts the admin first and reads hasPin', async () => {
+      expect(await listHomeProfiles(TOKEN)).toEqual([
+        { id: 7742299, title: 'Lee', isAdmin: true, hasPin: false },
+        { id: 342461108, title: 'Anese', isAdmin: false, hasPin: true },
+        { id: 9, title: 'Bea', isAdmin: false, hasPin: false },
+        { id: 10, title: 'Mom & Dad', isAdmin: false, hasPin: false },
+        { id: 11, title: 'Kid > Teen', isAdmin: false, hasPin: false }
+      ])
+      await expect(listHomeProfiles('wrong-token')).rejects.toMatchObject({ kind: 'unauthorized' })
+    })
+
+    it('switchHomeProfile returns the profile token and sends pin only when given', async () => {
+      expect(await switchHomeProfile(TOKEN, 342461108, PIN)).toBe('managed-token')
+      expect(fake.rawUrls.at(-1)).toBe(`/api/home/users/342461108/switch?pin=${PIN}`)
+      expect(await switchHomeProfile(TOKEN, 9)).toBe('open-token')
+      expect(fake.rawUrls.at(-1)).toBe('/api/home/users/9/switch')
+    })
+
+    it('listHomeProfiles decodes numeric and named entities', async () => {
+      const body = '<MediaContainer><User id="5" title="A &#38; B &#x41; &lt;x&gt; &apos;q&apos; &quot;" admin="0" protected="0" guest="0"/></MediaContainer>'
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(body, { status: 200 }))
+      try {
+        expect(await listHomeProfiles(TOKEN)).toEqual([{ id: 5, title: `A & B A <x> 'q' "`, isAdmin: false, hasPin: false }])
+      } finally {
+        fetchSpy.mockRestore()
+      }
+    })
+
+    it('listHomeProfiles leaves numeric references outside the Unicode scalar range as written', async () => {
+      const body = '<MediaContainer><User id="5" title="a&#xD800;b&#0;c&#x110000;d&#xDFFF;e&#x1F600;" admin="0" protected="0" guest="0"/></MediaContainer>'
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(body, { status: 200 }))
+      try {
+        expect(await listHomeProfiles(TOKEN)).toEqual([{ id: 5, title: 'a&#xD800;b&#0;c&#x110000;d&#xDFFF;e\u{1F600}', isAdmin: false, hasPin: false }])
+      } finally {
+        fetchSpy.mockRestore()
+      }
+    })
+
+    it('switchHomeProfile rejects a response without authenticationToken, keeping the status', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('<user id="9"/>', { status: 201 }))
+      try {
+        await expect(switchHomeProfile(TOKEN, 9)).rejects.toMatchObject({ kind: 'http', status: 201 })
+      } finally {
+        fetchSpy.mockRestore()
+      }
+    })
+
+    it('only the admin token may list or switch home profiles', async () => {
+      await expect(listHomeProfiles('managed-token')).rejects.toMatchObject({ kind: 'unauthorized' })
+      await expect(switchHomeProfile('managed-token', 9)).rejects.toMatchObject({ kind: 'unauthorized' })
+    })
+
+    it('switchHomeProfile maps a wrong PIN to http and a bad admin token to unauthorized, leaking neither secret', async () => {
+      const wrongPin = await switchHomeProfile(TOKEN, 342461108, '0000').catch((error: unknown) => error)
+      expect(wrongPin).toMatchObject({ kind: 'http', status: 422 })
+      const badToken = await switchHomeProfile('wrong-token', 342461108, PIN).catch((error: unknown) => error)
+      expect(badToken).toMatchObject({ kind: 'unauthorized' })
+      for (const error of [wrongPin, badToken]) {
+        for (const secret of [TOKEN, 'wrong-token', PIN, '0000']) {
+          expect(JSON.stringify(error)).not.toContain(secret)
+          expect((error as Error).message).not.toContain(secret)
+        }
+      }
+      expect(JSON.stringify(log.info.mock.calls) + JSON.stringify(log.warn.mock.calls)).not.toContain(PIN)
+    })
   })
 })
 
@@ -130,6 +232,7 @@ describe('pickConnection', () => {
   it('returns the one reachable uri out of a hanging, a refused and a reachable one', async () => {
     const resource = {
       machineId: 'm1',
+      owned: true,
       name: 'Mine',
       accessToken: TOKEN,
       connections: [
@@ -149,6 +252,7 @@ describe('pickConnection', () => {
     const slowLocalUri = `http://127.0.0.1:${(slowLocal.address() as AddressInfo).port}`
     const resource = {
       machineId: 'm1',
+      owned: true,
       name: 'Mine',
       accessToken: TOKEN,
       connections: [{ uri: fake.url, local: false, relay: true }, { uri: slowLocalUri, local: true, relay: false }]
@@ -168,7 +272,7 @@ describe('pickConnection', () => {
   })
 
   it('tries only the override when given, and throws unreachable when nothing answers', async () => {
-    const resource = { machineId: 'm1', name: 'Mine', accessToken: TOKEN, connections: [{ uri: fake.url, local: true, relay: false }] }
+    const resource = { machineId: 'm1', name: 'Mine', owned: true, accessToken: TOKEN, connections: [{ uri: fake.url, local: true, relay: false }] }
     const dead = await refusedUri()
     await expect(pickConnection(resource, dead, 200)).rejects.toMatchObject({ kind: 'unreachable' })
     expect(fake.calls).toEqual([])

@@ -14,6 +14,7 @@ const IntegrationsInApp = defineComponent({ render: () => h(UApp, null, { defaul
 const connectedStatus = {
   connected: true,
   serverName: 'PlexMediaVault',
+  profileName: 'Ldaniel',
   mode: 'on',
   listener: { state: 'connected', since: Date.parse('2026-11-21T10:00:00Z') },
   lastPlayAt: '2026-11-21T09:30:00.000Z',
@@ -41,6 +42,9 @@ const routes = vi.hoisted(() => ({
   restored: [] as number[],
   connectBodies: [] as unknown[],
   connectFailure: '' as string,
+  connectFailureStatus: 400,
+  connectedServerName: 'Attic Server',
+  connectedProfileName: 'Ldaniel',
   waitingPinChecks: 0,
   queued: [] as string[],
   disconnects: 0
@@ -71,7 +75,36 @@ for (const id of [7, 8]) {
 }
 registerEndpoint('/api/plex/pin/42', { handler: () => ({
   state: 'signed-in',
-  servers: [{ machineId: 'vault', name: 'PlexMediaVault' }, { machineId: 'attic', name: 'Attic Server' }]
+  servers: [{ machineId: 'vault', name: 'PlexMediaVault' }, { machineId: 'attic', name: 'Attic Server' }],
+  profiles: null,
+  currentProfileId: null
+}) })
+registerEndpoint('/api/plex/pin/44', { handler: () => ({
+  state: 'signed-in',
+  servers: [{ machineId: 'home', name: 'Home' }],
+  profiles: [
+    { id: 1, title: 'Ldaniel', isAdmin: true, hasPin: false },
+    { id: 2, title: 'Anese', isAdmin: false, hasPin: true }
+  ],
+  currentProfileId: 2
+}) })
+registerEndpoint('/api/plex/pin/45', { handler: () => ({
+  state: 'signed-in',
+  servers: [{ machineId: 'home', name: 'Home' }],
+  profiles: [
+    { id: 1, title: 'Ldaniel', isAdmin: true, hasPin: false },
+    { id: 2, title: 'Anese', isAdmin: false, hasPin: true }
+  ],
+  currentProfileId: null
+}) })
+registerEndpoint('/api/plex/pin/46', { handler: () => ({
+  state: 'signed-in',
+  servers: [{ machineId: 'vault', name: 'PlexMediaVault' }, { machineId: 'attic', name: 'Attic Server' }],
+  profiles: [
+    { id: 1, title: 'Ldaniel', isAdmin: true, hasPin: false },
+    { id: 2, title: 'Anese', isAdmin: false, hasPin: true }
+  ],
+  currentProfileId: null
 }) })
 registerEndpoint('/api/plex/pin/43', { handler: () => {
   routes.waitingPinChecks += 1
@@ -79,9 +112,9 @@ registerEndpoint('/api/plex/pin/43', { handler: () => {
 } })
 registerEndpoint('/api/plex/connect', { method: 'POST', handler: async (event) => {
   routes.connectBodies.push(await readBody(event))
-  if (routes.connectFailure) throw createError({ statusCode: 400, statusMessage: routes.connectFailure })
-  routes.status = { ...connectedStatus, serverName: 'Attic Server' }
-  return { connected: true, serverName: 'Attic Server' }
+  if (routes.connectFailure) throw createError({ statusCode: routes.connectFailureStatus, statusMessage: routes.connectFailure })
+  routes.status = { ...connectedStatus, serverName: routes.connectedServerName, profileName: routes.connectedProfileName }
+  return { connected: true, serverName: routes.connectedServerName }
 } })
 for (const job of ['scan', 'reconcile']) {
   registerEndpoint(`/api/plex/${job}`, { method: 'POST', handler: () => {
@@ -97,6 +130,9 @@ registerEndpoint('/api/plex/connection', { method: 'DELETE', handler: () => {
 
 const buttonNamed = (wrapper: VueWrapper, label: string) => wrapper.findAll('button').find(button => button.text() === label)
 const sectionTitled = (wrapper: VueWrapper, title: string) => wrapper.findAll('section').find(section => section.find('h2').text().startsWith(title))
+const profileRadio = (wrapper: VueWrapper, profileId: number) => wrapper.find(`[role="radio"][value="${profileId}"]`)
+const legends = (wrapper: VueWrapper) => wrapper.findAll('legend').map(legend => legend.text())
+const profilePinInput = (wrapper: VueWrapper) => wrapper.find('input[name="profilePin"]')
 const mountAt = (route: string) => mountSuspended(IntegrationsInApp, { route, attachTo: document.body })
 // mountSuspended hangs under fake timers; switch to them only once the page has mounted.
 const useFakeClock = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
@@ -112,6 +148,9 @@ describe('integrations page', () => {
     routes.restored = []
     routes.connectBodies = []
     routes.connectFailure = ''
+    routes.connectFailureStatus = 400
+    routes.connectedServerName = 'Attic Server'
+    routes.connectedProfileName = 'Ldaniel'
     routes.waitingPinChecks = 0
     routes.queued = []
     routes.disconnects = 0
@@ -220,6 +259,104 @@ describe('integrations page', () => {
 
     await vi.waitFor(() => expect(wrapper.text()).toContain('This Plex account isn\'t the server owner'))
     expect(routes.connectBodies).toEqual([{ pinId: 42, machineId: 'vault' }])
+  })
+
+  it('offers no profile choice when Plex returns no profiles', async () => {
+    const wrapper = await mountAt('/settings/integrations?pin=42')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Attic Server'))
+    expect(legends(wrapper)).toEqual(['Server'])
+    expect(profilePinInput(wrapper).exists()).toBe(false)
+  })
+
+  it('defaults the profile choice to the current profile and asks for its PIN', async () => {
+    const wrapper = await mountAt('/settings/integrations?pin=44')
+
+    await vi.waitFor(() => expect(legends(wrapper)).toContain('Plex profile'))
+    const radios = wrapper.findAll('fieldset').find(fieldset => fieldset.find('legend').text() === 'Plex profile')!.findAll('[role="radio"]')
+    expect(radios.map(radio => radio.attributes('value'))).toEqual(['1', '2'])
+    expect(profileRadio(wrapper, 2).attributes('aria-checked')).toBe('true')
+    const pinInput = profilePinInput(wrapper)
+    expect(pinInput.attributes()).toMatchObject({ type: 'password', inputmode: 'numeric', autocomplete: 'off' })
+
+    await profileRadio(wrapper, 1).trigger('click')
+    await vi.waitFor(() => expect(profilePinInput(wrapper).exists()).toBe(false))
+    await wrapper.find('form').trigger('submit')
+
+    await vi.waitFor(() => expect(routes.connectBodies).toEqual([{ pinId: 44, machineId: 'home', profileId: 1 }]))
+  })
+
+  it('connects as the chosen profile with its PIN and names it in the status', async () => {
+    const wrapper = await mountAt('/settings/integrations?pin=44')
+
+    await vi.waitFor(() => expect(profilePinInput(wrapper).exists()).toBe(true))
+    await profilePinInput(wrapper).setValue('1234')
+    routes.connectedServerName = 'Home'
+    routes.connectedProfileName = 'Anese'
+    await wrapper.find('form').trigger('submit')
+
+    await vi.waitFor(() => expect(routes.connectBodies).toEqual([{ pinId: 44, machineId: 'home', profileId: 2, profilePin: '1234' }]))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Connected to Home as Anese'))
+  })
+
+  it('asks to pick a profile when none is selected, sending nothing', async () => {
+    const wrapper = await mountAt('/settings/integrations?pin=45')
+
+    await vi.waitFor(() => expect(legends(wrapper)).toContain('Plex profile'))
+    await wrapper.find('form').trigger('submit')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Pick the profile to connect.'))
+    expect(wrapper.find('fieldset[aria-invalid="true"]').find('legend').text()).toBe('Plex profile')
+    expect(routes.connectBodies).toEqual([])
+  })
+
+  it('asks for the profile before the server when neither is chosen', async () => {
+    const wrapper = await mountAt('/settings/integrations?pin=46')
+
+    await vi.waitFor(() => expect(legends(wrapper)).toContain('Plex profile'))
+    await wrapper.find('form').trigger('submit')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Pick the profile to connect.'))
+    expect(wrapper.text()).not.toContain('Pick the server to connect.')
+
+    await profileRadio(wrapper, 1).trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Pick the server to connect.'))
+    expect(wrapper.text()).not.toContain('Pick the profile to connect.')
+    expect(routes.connectBodies).toEqual([])
+  })
+
+  it('asks for the PIN before connecting a protected profile', async () => {
+    const wrapper = await mountAt('/settings/integrations?pin=44')
+
+    await vi.waitFor(() => expect(profilePinInput(wrapper).exists()).toBe(true))
+    await wrapper.find('form').trigger('submit')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Enter the PIN for Anese.'))
+    expect(profilePinInput(wrapper).attributes('aria-invalid')).toBe('true')
+    expect(routes.connectBodies).toEqual([])
+  })
+
+  it.each([
+    [400, 'That PIN isn\'t right for Anese'],
+    [409, 'That Plex profile is already connected to another watchd account']
+  ])('shows the server\'s %i reason when connecting a profile fails', async (statusCode, reason) => {
+    routes.connectFailure = reason
+    routes.connectFailureStatus = statusCode
+    const wrapper = await mountAt('/settings/integrations?pin=44')
+
+    await vi.waitFor(() => expect(profilePinInput(wrapper).exists()).toBe(true))
+    await profilePinInput(wrapper).setValue('0000')
+    await wrapper.find('form').trigger('submit')
+
+    await vi.waitFor(() => expect(wrapper.findAll('[role="alert"]').map(alert => alert.text())).toContain(reason))
+    expect(legends(wrapper)).toContain('Plex profile')
+  })
+
+  it('names the connected profile in the status', async () => {
+    routes.status = { ...connectedStatus, serverName: 'Home', profileName: 'Anese' }
+    const wrapper = await mountAt('/settings/integrations')
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Connected to Home as Anese'))
   })
 
   it('gives up waiting for Plex after 2 minutes', async () => {

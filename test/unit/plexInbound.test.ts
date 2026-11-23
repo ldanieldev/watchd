@@ -87,7 +87,7 @@ describe('pullHistory', () => {
   let state: FakePlexState
   let fake: FakePlex
   let server: InstanceType<typeof PlexServer>
-  let connection: { id: number, userId: number, ownerAccountId: number, serverMachineId: string, sectionIds: string[], historyCursor: number | null, lastPlayAt: Date | null }
+  let connection: { id: number, userId: number, profileAccountId: number, serverMachineId: string, sectionIds: string[], historyCursor: number | null, lastPlayAt: Date | null }
   const episodeItem: InboundItem = { kind: 'episode', titleId: 7, season: 1, number: 1090 }
   const movieItem: InboundItem = { kind: 'movie', titleId: 9, season: null, number: null }
 
@@ -96,7 +96,7 @@ describe('pullHistory', () => {
     state = createFakePlexState({ token: TOKEN })
     fake = await startFakePlex(state)
     server = new PlexServer({ url: fake.url, token: TOKEN })
-    connection = { id: 3, userId: 42, ownerAccountId: OWNER, serverMachineId: 'server-a', sectionIds: ['1', '2'], historyCursor: null, lastPlayAt: null }
+    connection = { id: 3, userId: 42, profileAccountId: OWNER, serverMachineId: 'server-a', sectionIds: ['1', '2'], historyCursor: null, lastPlayAt: null }
   })
 
   afterEach(async () => {

@@ -120,7 +120,7 @@ describe('runPlexLink', () => {
   let state: FakePlexState
   let fake: FakePlex
   let server: InstanceType<typeof PlexServer>
-  const connection = { id: 3, userId: USER_ID, ownerAccountId: OWNER, serverMachineId: 'server-a', sectionIds: ['1', '2'], historyCursor: null as number | null, lastPlayAt: null }
+  const connection = { id: 3, userId: USER_ID, profileAccountId: OWNER, serverMachineId: 'server-a', sectionIds: ['1', '2'], historyCursor: null as number | null, lastPlayAt: null }
 
   const film = (ratingKey: string, tmdb: number, viewCount: number) => ({ sectionId: 1, ratingKey, type: 'movie' as const, title: `Film ${ratingKey}`, guids: [`tmdb://${tmdb}`], viewCount })
   const entry = (historyId: number, ratingKey: string, viewedAt: number) => ({ historyId, ratingKey, viewedAt, accountId: OWNER, sectionId: 1 })

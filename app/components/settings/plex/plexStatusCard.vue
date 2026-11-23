@@ -78,7 +78,7 @@ defineExpose({ focusHeading: () => heading.value?.focus() })
           Plex
         </h2>
         <p class="font-display text-2xl font-bold break-words text-highlighted sm:text-3xl">
-          Connected to {{ status.serverName }}
+          Connected to {{ status.serverName }} as {{ status.profileName }}
         </p>
         <p class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-highlighted">
           <span

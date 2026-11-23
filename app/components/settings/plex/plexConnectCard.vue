@@ -14,7 +14,9 @@ const props = defineProps<{
 const emit = defineEmits<{ connected: [serverName: string] }>()
 
 type SignInPhase = 'idle' | 'starting' | 'waiting' | 'picking' | 'connecting' | 'timed-out' | 'failed'
-type OwnedServer = Extract<PlexPinCheck, { state: 'signed-in' }>['servers'][number]
+type SignedInCheck = Extract<PlexPinCheck, { state: 'signed-in' }>
+type OwnedServer = SignedInCheck['servers'][number]
+type HomeProfile = NonNullable<SignedInCheck['profiles']>[number]
 
 const phase = ref<SignInPhase>('idle')
 const errorMessage = ref<string>()
@@ -22,6 +24,12 @@ const servers = ref<OwnedServer[]>([])
 const chosenMachineId = ref<string>()
 const serverUrlOverride = ref('')
 const serverChoiceError = ref<string>()
+const profileChoiceError = ref<string>()
+const homeProfiles = ref<HomeProfile[] | null>(null)
+const chosenProfileId = ref<number>()
+const profilePin = ref('')
+const profilePinError = ref<string>()
+const profilePinInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>('profilePinInput')
 const signInButton = useTemplateRef<ComponentPublicInstance>('signInButton')
 let pollTimer: ReturnType<typeof setTimeout> | undefined
 let isActive = true
@@ -29,6 +37,8 @@ let isActive = true
 const isSyncOff = computed(() => props.mode === 'off')
 const signInLabel = computed(() => (props.signInRejected ? 'Sign in again' : 'Sign in with Plex'))
 const serverOptions = computed(() => servers.value.map(server => ({ label: server.name, value: server.machineId })))
+const profileOptions = computed(() => (homeProfiles.value ?? []).map(profile => ({ label: profile.title, value: profile.id })))
+const chosenProfile = computed(() => homeProfiles.value?.find(profile => profile.id === chosenProfileId.value))
 const isWaitingForPlex = computed(() => phase.value === 'waiting')
 const showsServerForm = computed(() => (phase.value === 'picking' || phase.value === 'connecting') && servers.value.length > 0)
 
@@ -50,12 +60,14 @@ async function checkPin(pinId: number, deadline: number) {
     if (!isActive) return
     if (check.state === 'signed-in') {
       if (!check.servers.length) {
-        errorMessage.value = 'This Plex account doesn\'t own a Plex server. Sign in with the account that owns it.'
+        errorMessage.value = 'This Plex account can\'t access a Plex server. Sign in with an account in the server\'s Plex Home.'
         phase.value = 'failed'
         return
       }
       servers.value = check.servers
       chosenMachineId.value = check.servers.length === 1 ? check.servers[0]!.machineId : undefined
+      homeProfiles.value = check.profiles
+      chosenProfileId.value = check.currentProfileId ?? undefined
       phase.value = 'picking'
       return
     }
@@ -74,18 +86,30 @@ async function checkPin(pinId: number, deadline: number) {
 
 async function onConnect() {
   if (props.returningPinId === undefined) return
+  if (homeProfiles.value && !chosenProfile.value) {
+    profileChoiceError.value = 'Pick the profile to connect.'
+    return
+  }
+  profileChoiceError.value = undefined
   if (!chosenMachineId.value) {
     serverChoiceError.value = 'Pick the server to connect.'
     return
   }
   serverChoiceError.value = undefined
+  const pin = profilePin.value.trim()
+  if (chosenProfile.value?.hasPin && !pin) {
+    profilePinError.value = `Enter the PIN for ${chosenProfile.value.title}.`
+    profilePinInput.value?.inputRef?.focus()
+    return
+  }
   errorMessage.value = undefined
   phase.value = 'connecting'
   const override = serverUrlOverride.value.trim()
+  const profileChoice = chosenProfile.value && { profileId: chosenProfile.value.id, ...(chosenProfile.value.hasPin && { profilePin: pin }) }
   try {
     const { serverName } = await $fetch<{ serverName: string }>('/api/plex/connect', {
       method: 'POST',
-      body: { pinId: props.returningPinId, machineId: chosenMachineId.value, ...(override && { serverUrlOverride: override }) }
+      body: { pinId: props.returningPinId, machineId: chosenMachineId.value, ...(override && { serverUrlOverride: override }), ...profileChoice }
     })
     emit('connected', serverName)
   } catch (error) {
@@ -93,6 +117,15 @@ async function onConnect() {
     phase.value = 'picking'
   }
 }
+
+watch(chosenProfileId, () => {
+  profileChoiceError.value = undefined
+  profilePin.value = ''
+  profilePinError.value = undefined
+})
+watch(profilePin, () => {
+  profilePinError.value = undefined
+})
 
 onMounted(() => {
   if (props.returningPinId === undefined) return
@@ -128,7 +161,7 @@ defineExpose({ focusSignIn: () => (signInButton.value?.$el as HTMLElement | unde
           v-else
           class="max-w-prose text-sm text-muted"
         >
-          Plays you finish in Plex arrive in watchd as they happen, and what you mark here is marked in Plex too. Only the server owner's plays are read.
+          Plays you finish in Plex arrive in watchd as they happen, and what you mark here is marked in Plex too. Only the plays of the Plex profile you connect are read and written.
         </p>
       </div>
 
@@ -158,6 +191,38 @@ defineExpose({ focusSignIn: () => (signInButton.value?.$el as HTMLElement | unde
         novalidate
         @submit.prevent="onConnect"
       >
+        <UFormField
+          v-if="homeProfiles"
+          name="profileId"
+          :error="profileChoiceError"
+        >
+          <URadioGroup
+            v-model="chosenProfileId"
+            legend="Plex profile"
+            name="profileId"
+            :items="profileOptions"
+            :ui="{ legend: 'mb-2 text-sm font-medium text-highlighted', label: 'break-words' }"
+          />
+        </UFormField>
+        <UFormField
+          v-if="chosenProfile?.hasPin"
+          label="Profile PIN"
+          name="profilePin"
+          :error="profilePinError"
+          class="-mt-2"
+        >
+          <UInput
+            ref="profilePinInput"
+            v-model="profilePin"
+            type="password"
+            name="profilePin"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="16"
+            class="w-32"
+          />
+        </UFormField>
+
         <URadioGroup
           v-if="servers.length > 1"
           v-model="chosenMachineId"

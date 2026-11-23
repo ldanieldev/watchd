@@ -9,6 +9,7 @@ export interface PlexConnection {
 export interface PlexServerResource {
   machineId: string
   name: string
+  owned: boolean
   accessToken: string
   connections: PlexConnection[]
 }
@@ -20,8 +21,17 @@ export interface PlexPin {
 }
 
 export interface PlexUser {
+  id: number
   username: string
+  title: string
   homeAdmin: boolean
+}
+
+export interface PlexHomeProfile {
+  id: number
+  title: string
+  isAdmin: boolean
+  hasPin: boolean
 }
 
 export interface PlexAccount {

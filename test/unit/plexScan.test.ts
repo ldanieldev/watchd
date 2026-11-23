@@ -162,7 +162,7 @@ describe('runPlexScan', () => {
   let state: FakePlexState
   let fake: FakePlex
   let server: InstanceType<typeof PlexServer>
-  const connection = { id: 3, userId: USER_ID, ownerAccountId: OWNER, serverMachineId: 'server-a', sectionIds: ['1', '2'], historyCursor: null, lastPlayAt: null, lastScanAt: null as Date | null }
+  const connection = { id: 3, userId: USER_ID, profileAccountId: OWNER, serverMachineId: 'server-a', sectionIds: ['1', '2'], historyCursor: null, lastPlayAt: null, lastScanAt: null as Date | null }
 
   const plexMovie = (viewCount: number, lastViewedAt?: number) => ({ sectionId: 1, ratingKey: '10', type: 'movie' as const, title: 'Synthetic Film', guids: ['tmdb://111'], viewCount, lastViewedAt })
 

@@ -1,7 +1,7 @@
 import { logger } from '../logger'
 import { plexClientIdentifier, plexSyncMode } from './config'
 import type {
-  PlexAccount, PlexHistoryEntry, PlexHistoryQuery, PlexItem, PlexItemKind, PlexPin, PlexSection,
+  PlexAccount, PlexHistoryEntry, PlexHomeProfile, PlexHistoryQuery, PlexItem, PlexItemKind, PlexPin, PlexSection,
   PlexServerResource, PlexSession, PlexUser
 } from './types'
 
@@ -88,8 +88,49 @@ export async function checkPin(id: number, code: string): Promise<string | null>
 }
 
 export async function getPlexUser(token: string): Promise<PlexUser> {
-  const user = await plexJson<{ username: string, homeAdmin: boolean }>(plexTvBaseUrl, 'GET', '/api/v2/user', { token })
-  return { username: user.username, homeAdmin: Boolean(user.homeAdmin) }
+  const user = await plexJson<{ id: number, username: string, title: string, homeAdmin: boolean }>(plexTvBaseUrl, 'GET', '/api/v2/user', { token })
+  return { id: user.id, username: user.username, title: user.title, homeAdmin: Boolean(user.homeAdmin) }
+}
+
+async function plexXml(method: string, path: string, options: RequestOptions): Promise<{ text: string, status: number }> {
+  const response = await plexRequest(plexTvBaseUrl, method, path, { ...options, headers: { Accept: 'application/xml' } })
+  return { text: await response.text(), status: response.status }
+}
+
+const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: '\'' }
+
+function decodeXmlEntities(value: string): string {
+  return value.replace(/&(?:#x([\da-f]+)|#(\d+)|(\w+));/gi, (match, hex?: string, decimal?: string, name?: string) => {
+    if (name) return XML_ENTITIES[name] ?? match
+    const codePoint = hex ? Number.parseInt(hex, 16) : Number(decimal)
+    const isScalarValue = codePoint > 0 && codePoint <= 0x10FFFF && (codePoint < 0xD800 || codePoint > 0xDFFF)
+    return isScalarValue ? String.fromCodePoint(codePoint) : match
+  })
+}
+
+function xmlAttributes(element: string): Record<string, string> {
+  return Object.fromEntries([...element.matchAll(/([\w:-]+)="([^"]*)"/g)].map(([, name, value]) => [name, decodeXmlEntities(value!)]))
+}
+
+export async function listHomeProfiles(adminToken: string): Promise<PlexHomeProfile[]> {
+  const { text } = await plexXml('GET', '/api/home/users', { token: adminToken })
+  return [...text.matchAll(/<User\s(?:[^>"]|"[^"]*")*>/g)]
+    .map(([element]) => xmlAttributes(element))
+    .filter(attributes => attributes.guest !== '1')
+    .map(attributes => ({
+      id: Number(attributes.id),
+      title: attributes.title ?? '',
+      isAdmin: attributes.admin === '1',
+      hasPin: attributes.protected === '1'
+    }))
+    .sort((left, right) => Number(right.isAdmin) - Number(left.isAdmin))
+}
+
+export async function switchHomeProfile(adminToken: string, profileId: number, pin?: string): Promise<string> {
+  const { text, status } = await plexXml('POST', `/api/home/users/${profileId}/switch`, { token: adminToken, query: pin === undefined ? undefined : { pin } })
+  const token = xmlAttributes(text.match(/<user\s(?:[^>"]|"[^"]*")*>/i)?.[0] ?? '').authenticationToken
+  if (!token) throw new PlexError('http', `POST /api/home/users/${profileId}/switch returned no authenticationToken`, status)
+  return token
 }
 
 interface RawResource {
@@ -97,20 +138,22 @@ interface RawResource {
   clientIdentifier: string
   provides: string
   owned: boolean
+  home?: boolean
   accessToken: string
   connections?: { uri: string, local: boolean, relay: boolean }[]
 }
 
-export async function listOwnedServers(token: string): Promise<PlexServerResource[]> {
+export async function listServers(token: string): Promise<PlexServerResource[]> {
   const resources = await plexJson<RawResource[]>(plexTvBaseUrl, 'GET', '/api/v2/resources', {
     token,
     query: { includeHttps: '1', includeRelay: '1' }
   })
   return resources
-    .filter(resource => resource.owned && resource.provides.split(',').includes('server'))
+    .filter(resource => (resource.owned || resource.home) && resource.provides.split(',').includes('server'))
     .map(resource => ({
       machineId: resource.clientIdentifier,
       name: resource.name,
+      owned: Boolean(resource.owned),
       accessToken: resource.accessToken,
       connections: (resource.connections ?? []).map(({ uri, local, relay }) => ({ uri, local, relay }))
     }))

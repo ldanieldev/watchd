@@ -279,7 +279,7 @@ describe('createCoalescedRunner', () => {
   })
 })
 
-const REGISTRY_CONNECTION = { ...CONNECTION, id: 5, ownerAccountId: 1, plexUsername: 'synthetic-owner', tokenInvalid: false } as unknown as PlexConnectionRow
+const REGISTRY_CONNECTION = { ...CONNECTION, id: 5, profileAccountId: 1, profileName: 'synthetic-owner', isServerOwner: true, tokenInvalid: false } as unknown as PlexConnectionRow
 
 function registryHarness(overrides: Partial<Parameters<typeof createListenerRegistry>[0]> = {}) {
   const sockets: FakeSocket[] = []
@@ -462,6 +462,63 @@ describe('listenerRegistry', () => {
       { titleId: 11, type: 'tv', name: 'Title 11' },
       { titleId: 12, type: 'tv', name: 'Title 12' }
     ])
+  })
+
+  describe('nowPlaying for a non-owner profile', () => {
+    const NON_OWNER = { ...REGISTRY_CONNECTION, id: 8, userId: 77, profileAccountId: 3, profileName: 'synthetic-kid', isServerOwner: false, serverMachineId: 'machine-1', serverToken: 'non-owner-token' } as unknown as PlexConnectionRow
+    const OWNER = { ...REGISTRY_CONNECTION, id: 5, serverToken: 'owner-token', serverMachineId: 'machine-1' } as unknown as PlexConnectionRow
+    const allSessions = [
+      { sessionKey: 'a', ratingKey: '11', userId: 1, userTitle: 'synthetic-owner', state: 'playing', viewOffset: 0 },
+      { sessionKey: 'b', ratingKey: '12', userId: 3, state: 'playing', viewOffset: 0 },
+      { sessionKey: 'c', ratingKey: '13', userTitle: 'synthetic-kid', state: 'paused', viewOffset: 0 }
+    ]
+
+    it('reads sessions with the owner connection and keeps only the profile own sessions', async () => {
+      const loadServerOwnerConnection = vi.fn(async (_machineId: string) => OWNER)
+      const resolveItems = vi.fn(async (_userId: number, _connectionId: number, ratingKeys: string[]) => new Map(ratingKeys.map(key => [key, { titleId: Number(key), type: 'tv' as const, name: `Title ${key}`, season: null, number: null }])))
+      const sessions = vi.fn(async (_connection: PlexConnectionRow) => allSessions)
+      const { registry } = registryHarness({ loadConnection: async () => NON_OWNER, loadServerOwnerConnection, sessions, resolveItems })
+      expect(await registry.nowPlaying(77)).toEqual([
+        { titleId: 12, type: 'tv', name: 'Title 12' },
+        { titleId: 13, type: 'tv', name: 'Title 13' }
+      ])
+      expect(loadServerOwnerConnection).toHaveBeenCalledWith('machine-1')
+      expect(sessions).toHaveBeenCalledWith(OWNER)
+      expect(resolveItems).toHaveBeenCalledWith(77, 8, ['12', '13'])
+    })
+
+    it('does not return another profile session that shares its title, and matches by title only without a user id', async () => {
+      const { registry } = registryHarness({
+        loadConnection: async () => NON_OWNER,
+        loadServerOwnerConnection: async () => OWNER,
+        sessions: async () => [
+          { sessionKey: 'x', ratingKey: '11', userId: 1, userTitle: 'synthetic-kid', state: 'playing', viewOffset: 0 },
+          { sessionKey: 'y', ratingKey: '13', userTitle: 'synthetic-kid', state: 'playing', viewOffset: 0 }
+        ]
+      })
+      expect(await registry.nowPlaying(77)).toEqual([{ titleId: 13, type: 'tv', name: 'Title 13' }])
+    })
+
+    it('is empty without asking Plex for sessions when the loader finds no owner connection', async () => {
+      const { registry, sessions } = registryHarness({ loadConnection: async () => NON_OWNER, loadServerOwnerConnection: async () => null })
+      expect(await registry.nowPlaying(77)).toEqual([])
+      expect(sessions).not.toHaveBeenCalled()
+    })
+
+    it('is empty without an owner lookup or sessions call when the non-owner token is invalid', async () => {
+      const loadServerOwnerConnection = vi.fn(async () => OWNER)
+      const { registry, sessions } = registryHarness({ loadConnection: async () => ({ ...NON_OWNER, tokenInvalid: true }) as PlexConnectionRow, loadServerOwnerConnection })
+      expect(await registry.nowPlaying(77)).toEqual([])
+      expect(loadServerOwnerConnection).not.toHaveBeenCalled()
+      expect(sessions).not.toHaveBeenCalled()
+    })
+
+    it('does not look up another owner for an owner connection', async () => {
+      const loadServerOwnerConnection = vi.fn(async () => OWNER)
+      const { registry } = registryHarness({ loadServerOwnerConnection })
+      await registry.nowPlaying(42)
+      expect(loadServerOwnerConnection).not.toHaveBeenCalled()
+    })
   })
 
   it('nowPlaying resolves items for the calling user and connection', async () => {

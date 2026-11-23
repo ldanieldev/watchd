@@ -6,7 +6,7 @@ import { queueSearchReindex } from '../search/searchEvents'
 import { PlexError } from './client'
 import type { PlexServer } from './client'
 import { plexClientIdentifier, plexSyncMode } from './config'
-import { loadPlexConnection, plexServerFor } from './connection'
+import { loadPlexConnection, loadServerOwnerConnection, plexServerFor } from './connection'
 import type { PlexConnectionRow } from './connection'
 import { pullHistory } from './inbound'
 import { drizzlePlexOutboundStore } from './outbound'
@@ -201,6 +201,7 @@ interface ResolvedItem { titleId: number, type: MediaType, name: string, season:
 
 export interface RegistryDeps {
   loadConnection(userId: number): Promise<PlexConnectionRow | null>
+  loadServerOwnerConnection(serverMachineId: string): Promise<PlexConnectionRow | null>
   connect(url: string, token: string): ListenerSocket
   pullHistory(connection: PlexConnectionRow, server: PlexServer): Promise<unknown>
   flagTokenInvalid(connectionId: number): Promise<void>
@@ -228,6 +229,7 @@ const drizzleResolveItems: RegistryDeps['resolveItems'] = async (userId, connect
 
 const defaultDeps: RegistryDeps = {
   loadConnection: loadPlexConnection,
+  loadServerOwnerConnection,
   connect: connectPlexWebSocket,
   pullHistory,
   flagTokenInvalid: drizzlePlexOutboundStore.flagTokenInvalid,
@@ -311,9 +313,11 @@ export function createListenerRegistry(overrides: Partial<RegistryDeps> = {}) {
       if (plexSyncMode() === 'off') return []
       try {
         const connection = await deps.loadConnection(userId)
-        if (!connection) return []
-        const sessions = (await deps.sessions(connection))
-          .filter(session => session.userId === connection.ownerAccountId || session.userTitle === connection.plexUsername)
+        if (!connection || (!connection.isServerOwner && connection.tokenInvalid)) return []
+        const sessionsConnection = connection.isServerOwner ? connection : await deps.loadServerOwnerConnection(connection.serverMachineId)
+        if (!sessionsConnection) return []
+        const sessions = (await deps.sessions(sessionsConnection))
+          .filter(session => session.userId !== undefined ? session.userId === connection.profileAccountId : session.userTitle === connection.profileName)
         const items = await deps.resolveItems(userId, connection.id, [...new Set(sessions.map(session => session.ratingKey))])
         return sessions.flatMap((session) => {
           const item = items.get(session.ratingKey)

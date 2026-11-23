@@ -50,6 +50,20 @@
       "when": 1795317123391,
       "tag": "0006_grey_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795363548153,
+      "tag": "0007_plex_connection_profile_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795367189294,
+      "tag": "0008_plex_connections_server_profile_unique",
+      "breakpoints": true
     }
   ]
 }

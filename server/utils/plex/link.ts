@@ -92,7 +92,7 @@ export const drizzlePlexLinkStore: PlexLinkStore = {
   flagTokenInvalid: drizzlePlexOutboundStore.flagTokenInvalid
 }
 
-export type LinkConnection = Pick<PlexConnectionRow, 'id' | 'userId' | 'ownerAccountId' | 'serverMachineId' | 'sectionIds' | 'historyCursor' | 'lastPlayAt'>
+export type LinkConnection = Pick<PlexConnectionRow, 'id' | 'userId' | 'profileAccountId' | 'serverMachineId' | 'sectionIds' | 'historyCursor' | 'lastPlayAt'>
 
 export interface PlexLinkContext {
   connection: LinkConnection

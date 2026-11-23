@@ -40,6 +40,13 @@ const USER = { id: 42, email: 'a@b.c', name: 'A' }
 const ACCOUNT_TOKEN = 'account-token-secret'
 const SERVER_TOKEN = 'server-token-secret'
 const OVERRIDE_URL = 'http://override.invalid:32400'
+const ADMIN_PLEX_ID = 7742299
+const ANESE_PLEX_ID = 342461108
+const ANESE_TOKEN = 'anese-account-token'
+const ANESE_SERVER_TOKEN = 'anese-server-token'
+const MEMBER_PLEX_ID = 555000111
+const MEMBER_TOKEN = 'member-account-token'
+const MEMBER_SERVER_TOKEN = 'member-server-token'
 
 let state: FakePlexState
 let plex: FakePlex
@@ -47,8 +54,8 @@ let plex: FakePlex
 function connectionRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 5, userId: USER.id, accountToken: ACCOUNT_TOKEN, serverToken: SERVER_TOKEN, serverMachineId: 'machine-1', serverName: 'Home',
-    serverUrl: plex.url, serverUrlOverride: OVERRIDE_URL, ownerAccountId: 1, plexUsername: 'synthetic-owner', sectionIds: ['1'],
-    historyCursor: null, lastScanAt: new Date('2026-01-02T03:04:05Z'), lastPlayAt: null, lastReport: null, tokenInvalid: false, ...overrides
+    serverUrl: plex.url, serverUrlOverride: OVERRIDE_URL, profileAccountId: 1, profileName: 'synthetic-owner', sectionIds: ['1'],
+    historyCursor: null, lastScanAt: new Date('2026-01-02T03:04:05Z'), lastPlayAt: null, lastReport: null, isServerOwner: true, tokenInvalid: false, ...overrides
   }
 }
 
@@ -70,6 +77,7 @@ beforeEach(async () => {
   state = createFakePlexState({
     token: ACCOUNT_TOKEN,
     pinAuthToken: ACCOUNT_TOKEN,
+    user: { id: ADMIN_PLEX_ID, username: 'synthetic-owner', title: 'Synthetic Owner', homeAdmin: true },
     sections: [
       { id: 1, type: 'movie', title: 'Films', agent: 'tv.plex.agents.movie' },
       { id: 2, type: 'show', title: 'Series', agent: 'tv.plex.agents.series' },
@@ -84,6 +92,28 @@ beforeEach(async () => {
   }]
   setPlexTvBaseUrl(plex.url)
 })
+
+const homeUser = (id: number, title: string, flags: Partial<FakePlexState['homeUsers'][number]> = {}) =>
+  ({ id, title, username: '', admin: false, restricted: false, protected: false, guest: false, ...flags })
+
+const homeResource = (accessToken: string) => ({
+  name: 'Home', clientIdentifier: 'machine-1', provides: 'server', owned: false, home: true, accessToken,
+  connections: [{ uri: plex.url, local: true, relay: false }]
+})
+
+function givenHome() {
+  const anese = { user: { id: ANESE_PLEX_ID, username: '', title: 'Anese', homeAdmin: false }, resources: [homeResource(ANESE_SERVER_TOKEN)] }
+  const member = { user: { id: MEMBER_PLEX_ID, username: 'member', title: 'Member', homeAdmin: false }, resources: [homeResource(MEMBER_SERVER_TOKEN)] }
+  state.homeUsers = [
+    homeUser(ADMIN_PLEX_ID, 'synthetic-owner', { username: 'synthetic-owner', admin: true }),
+    homeUser(ANESE_PLEX_ID, 'Anese', { restricted: true }),
+    homeUser(MEMBER_PLEX_ID, 'Member', { username: 'member' }),
+    homeUser(342461106, 'Guest', { guest: true })
+  ]
+  state.profiles = { [ANESE_TOKEN]: anese, [ANESE_SERVER_TOKEN]: anese, [MEMBER_TOKEN]: member, [MEMBER_SERVER_TOKEN]: member }
+}
+
+const switchCalls = () => plex.calls.filter(call => /^\/api\/home\/users\/\d+\/switch$/.test(call.path))
 
 afterEach(async () => {
   setPlexTvBaseUrl(undefined)
@@ -142,12 +172,51 @@ describe('plex routes: sign-in', () => {
   it('pin/:id answers signed-in with the owned servers and keeps the account token server-side', async () => {
     harness.setSession({ user: USER, secure: { plex: { pinId: 4242, code: 'ABCD' } } })
     const result = await pinGet(event({ params: { id: '4242' } }))
-    expect(result).toEqual({ state: 'signed-in', servers: [{ machineId: 'machine-1', name: 'Home' }] })
+    expect(result).toEqual({ state: 'signed-in', servers: [{ machineId: 'machine-1', name: 'Home' }], profiles: null, currentProfileId: null })
     expect(JSON.stringify(result)).not.toContain(ACCOUNT_TOKEN)
     expect(harness.sessionNow().secure).toEqual({ plex: { pinId: 4242, code: 'ABCD' } })
     expect(JSON.stringify(harness.sessionNow())).not.toContain(ACCOUNT_TOKEN)
     expect(storage.get(`plex-sign-in:${USER.id}:4242`)).toMatchObject({ accountToken: ACCOUNT_TOKEN })
     expect(harness.sessionNow().user).toEqual(USER)
+  })
+
+  it('pin/:id offers the non-guest Home profiles to an admin, defaulting to the admin profile', async () => {
+    harness.setSession(signedInSession())
+    givenHome()
+    harness.givenDb({ select: [[]] })
+    expect(await pinGet(event({ params: { id: '4242' } }))).toEqual({
+      state: 'signed-in',
+      servers: [{ machineId: 'machine-1', name: 'Home' }],
+      profiles: [
+        { id: ADMIN_PLEX_ID, title: 'synthetic-owner', isAdmin: true, hasPin: false },
+        { id: ANESE_PLEX_ID, title: 'Anese', isAdmin: false, hasPin: false },
+        { id: MEMBER_PLEX_ID, title: 'Member', isAdmin: false, hasPin: false }
+      ],
+      currentProfileId: ADMIN_PLEX_ID
+    })
+  })
+
+  it('pin/:id defaults the picker to the connected profile for a non-owner connection, and to the admin for the owner\'s', async () => {
+    harness.setSession(signedInSession())
+    givenHome()
+    harness.givenDb({ select: [[connectionRow({ profileAccountId: ANESE_PLEX_ID, profileName: 'Anese', isServerOwner: false })]] })
+    expect(await pinGet(event({ params: { id: '4242' } }))).toMatchObject({ currentProfileId: ANESE_PLEX_ID })
+    harness.givenDb({ select: [[connectionRow({ profileAccountId: 1, isServerOwner: true })]] })
+    expect(await pinGet(event({ params: { id: '4242' } }))).toMatchObject({ currentProfileId: ADMIN_PLEX_ID })
+  })
+
+  it('pin/:id offers no picker when the Home has one profile or the account is not the Home admin', async () => {
+    harness.setSession(signedInSession())
+    givenHome()
+    state.homeUsers = [state.homeUsers[0]!, state.homeUsers[3]!]
+    expect(await pinGet(event({ params: { id: '4242' } }))).toMatchObject({ profiles: null, currentProfileId: null })
+    givenHome()
+    storage.clear()
+    state.pinAuthToken = MEMBER_TOKEN
+    expect(await pinGet(event({ params: { id: '4242' } }))).toEqual({
+      state: 'signed-in', servers: [{ machineId: 'machine-1', name: 'Home' }], profiles: null, currentProfileId: null
+    })
+    expect(plex.calls.filter(call => call.path === '/api/home/users')).toHaveLength(1)
   })
 
   it('pin/:id rejects a pin this session did not start', async () => {
@@ -160,7 +229,7 @@ describe('plex routes: sign-in', () => {
 
 describe('plex routes: connect', () => {
   const body = { pinId: 4242, machineId: 'machine-1' }
-  const seedToken = (expiresAt = Date.now() + 60_000) => storage.set(`plex-sign-in:${USER.id}:4242`, { accountToken: ACCOUNT_TOKEN, expiresAt })
+  const seedToken = (expiresAt = Date.now() + 60_000, accountToken = ACCOUNT_TOKEN) => storage.set(`plex-sign-in:${USER.id}:4242`, { accountToken, expiresAt })
   beforeEach(() => seedToken())
 
   it('answers 400 "Sign-in expired" when the stored token is missing or past its expiry', async () => {
@@ -175,6 +244,9 @@ describe('plex routes: connect', () => {
     harness.setSession(signedInSession())
     await rejectsWith(connectPost(event({ body: { pinId: 'x' } })), 400)
     await rejectsWith(connectPost(event({ body: { ...body, serverUrlOverride: 'ftp://x' } })), 400)
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID, profilePin: '1'.repeat(17) } })), 400)
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID, profilePin: '' } })), 400, 'Validation Error')
+    expect(plex.calls).toEqual([])
   })
 
   it('rejects a connect that does not follow a sign-in', async () => {
@@ -184,16 +256,9 @@ describe('plex routes: connect', () => {
     await rejectsWith(connectPost(event({ body })), 400)
   })
 
-  it('answers 400 for a non-admin plex.tv user', async () => {
-    harness.setSession(signedInSession())
-    state.user = { username: 'synthetic-owner', homeAdmin: false }
-    await rejectsWith(connectPost(event({ body })), 400, `This Plex account isn't the server owner`)
-    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
-  })
-
   it('answers 400 when no /accounts entry carries the plex.tv username', async () => {
     harness.setSession(signedInSession())
-    state.user = { username: 'someone-else', homeAdmin: true }
+    state.user = { id: 1, username: 'someone-else', title: 'someone-else', homeAdmin: true }
     await rejectsWith(connectPost(event({ body })), 400, `This Plex account isn't the server owner`)
   })
 
@@ -207,13 +272,14 @@ describe('plex routes: connect', () => {
 
   it('stores the connection with default libraries that skip agents.none and non-video types, starts the listener and queues the link', async () => {
     harness.setSession(signedInSession())
-    harness.givenDb({ select: [[], [{ latest: null }]], insert: [[{ id: 5 }]] })
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insert: [[{ id: 5 }]] })
     const result = await connectPost(event({ body: { ...body, serverUrlOverride: plex.url } }))
     expect(result).toEqual({ connected: true, serverName: 'Home' })
     expect(harness.mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({
       userId: USER.id, accountToken: ACCOUNT_TOKEN, serverToken: ACCOUNT_TOKEN, serverMachineId: 'machine-1', serverName: 'Home',
-      serverUrl: plex.url, serverUrlOverride: plex.url, ownerAccountId: 1, plexUsername: 'synthetic-owner', sectionIds: ['1', '2'], historyCursor: null
+      serverUrl: plex.url, serverUrlOverride: plex.url, profileAccountId: 1, profileName: 'Synthetic Owner', isServerOwner: true, sectionIds: ['1', '2'], historyCursor: null
     }))
+    expect(switchCalls()).toEqual([])
     expect(registry.startFor).toHaveBeenCalledWith(USER.id)
     expect(send).toHaveBeenCalledWith({ name: 'plex/link.requested', data: { userId: USER.id, rerun: false } })
     expect(harness.sessionNow().secure).toEqual({})
@@ -223,7 +289,7 @@ describe('plex routes: connect', () => {
 
   it('sends search/library.changed for the user after the connection replace commits', async () => {
     harness.setSession(signedInSession())
-    harness.givenDb({ select: [[connectionRow({ serverMachineId: 'machine-old' })], [{ latest: null }], []], insert: [[{ id: 6 }]] })
+    harness.givenDb({ select: [[], [connectionRow({ serverMachineId: 'machine-old' })], [{ latest: null }], []], insert: [[{ id: 6 }]] })
 
     await connectPost(event({ body }))
 
@@ -233,18 +299,18 @@ describe('plex routes: connect', () => {
 
   it('starts a new connection\'s history cursor at the newest imported play, so the first pull skips older Plex history', async () => {
     harness.setSession(signedInSession())
-    harness.givenDb({ select: [[], [{ latest: new Date('2026-03-01T00:00:00Z') }]], insert: [[{ id: 5 }]] })
+    harness.givenDb({ select: [[], [], [{ latest: new Date('2026-03-01T00:00:00Z') }]], insert: [[{ id: 5 }]] })
     await connectPost(event({ body }))
     expect(harness.mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({ historyCursor: Date.UTC(2026, 2, 1) / 1000 }))
   })
 
   it('updates a re-sign-in to the same server in place, keeping its cursor, libraries, item map and unmarked plays', async () => {
     harness.setSession(signedInSession())
-    harness.givenDb({ select: [[connectionRow({ tokenInvalid: true, historyCursor: 1_700_000_000, sectionIds: ['2'] })]] })
+    harness.givenDb({ select: [[], [connectionRow({ tokenInvalid: true, historyCursor: 1_700_000_000, sectionIds: ['2'] })]] })
     expect(await connectPost(event({ body }))).toEqual({ connected: true, serverName: 'Home' })
     expect(harness.mocks.updateSet).toHaveBeenCalledWith(expect.objectContaining({
       accountToken: ACCOUNT_TOKEN, serverToken: ACCOUNT_TOKEN, serverName: 'Home', serverUrl: plex.url, serverUrlOverride: null,
-      ownerAccountId: 1, plexUsername: 'synthetic-owner', tokenInvalid: false
+      profileAccountId: 1, profileName: 'Synthetic Owner', isServerOwner: true, tokenInvalid: false
     }))
     const update = (harness.mocks.updateSet.mock.calls[0] as unknown[])[0] as Record<string, unknown>
     expect(update).not.toHaveProperty('historyCursor')
@@ -257,7 +323,7 @@ describe('plex routes: connect', () => {
 
   it('replaces a connection to another server: restores its unmarked plays, then delete-then-insert, restarting the listener only after it commits', async () => {
     harness.setSession(signedInSession())
-    harness.givenDb({ select: [[connectionRow({ serverMachineId: 'machine-old' })], [{ latest: null }], []], insert: [[{ id: 6 }]] })
+    harness.givenDb({ select: [[], [connectionRow({ serverMachineId: 'machine-old' })], [{ latest: null }], []], insert: [[{ id: 6 }]] })
     await connectPost(event({ body }))
     expect(harness.mocks.updateSet).toHaveBeenCalledWith({ deletedAt: null })
     expect(harness.mocks.deleteWhere).toHaveBeenCalledTimes(1)
@@ -269,7 +335,7 @@ describe('plex routes: connect', () => {
 
   it('leaves the old listener running when the replace fails', async () => {
     harness.setSession(signedInSession())
-    harness.givenDb({ select: [[connectionRow({ serverMachineId: 'machine-old' })], [{ latest: null }], []], insertError: new Error('db down') })
+    harness.givenDb({ select: [[], [connectionRow({ serverMachineId: 'machine-old' })], [{ latest: null }], []], insertError: new Error('db down') })
     await expect(connectPost(event({ body }))).rejects.toThrow('db down')
     expect(registry.stopFor).not.toHaveBeenCalled()
     expect(registry.startFor).not.toHaveBeenCalled()
@@ -277,10 +343,188 @@ describe('plex routes: connect', () => {
 
   it('answers 503 when the link event cannot be queued', async () => {
     harness.setSession(signedInSession())
-    harness.givenDb({ select: [[], [{ latest: null }]], insert: [[{ id: 5 }]] })
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insert: [[{ id: 5 }]] })
     send.mockRejectedValue(new Error('inngest down'))
     await rejectsWith(connectPost(event({ body })), 503)
     expect(log.warn).toHaveBeenCalled()
+  })
+})
+
+describe('plex routes: connect as a Home profile', () => {
+  const body = { pinId: 4242, machineId: 'machine-1' }
+  const seedToken = (accountToken = ACCOUNT_TOKEN) => storage.set(`plex-sign-in:${USER.id}:4242`, { accountToken, expiresAt: Date.now() + 60_000 })
+  beforeEach(() => {
+    harness.setSession(signedInSession())
+    givenHome()
+    seedToken()
+  })
+
+  it('connects an admin choosing a managed profile with only that profile\'s tokens, never calling /accounts', async () => {
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insert: [[{ id: 7 }]] })
+    expect(await connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } }))).toEqual({ connected: true, serverName: 'Home' })
+    expect(switchCalls()).toHaveLength(1)
+    expect(plex.calls.some(call => call.path === '/accounts')).toBe(false)
+    const row = (harness.mocks.insertValues.mock.calls[0] as unknown[])[0] as Record<string, unknown>
+    expect(row).toMatchObject({
+      userId: USER.id, accountToken: ANESE_TOKEN, serverToken: ANESE_SERVER_TOKEN, serverMachineId: 'machine-1',
+      profileAccountId: ANESE_PLEX_ID, profileName: 'Anese', isServerOwner: false
+    })
+    expect(JSON.stringify(row)).not.toContain(ACCOUNT_TOKEN)
+    expect(storage.size).toBe(0)
+    expect(harness.sessionNow().secure).toEqual({})
+    expect(registry.startFor).toHaveBeenCalledWith(USER.id)
+  })
+
+  it('connects as the admin itself when profileId is the admin\'s own, without switching', async () => {
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insert: [[{ id: 5 }]] })
+    await connectPost(event({ body: { ...body, profileId: ADMIN_PLEX_ID } }))
+    expect(switchCalls()).toEqual([])
+    expect(harness.mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({
+      accountToken: ACCOUNT_TOKEN, profileAccountId: 1, profileName: 'Synthetic Owner', isServerOwner: true
+    }))
+  })
+
+  it('stores a full-account Home member that signed in as itself as a non-owner', async () => {
+    seedToken(MEMBER_TOKEN)
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insert: [[{ id: 8 }]] })
+    await connectPost(event({ body }))
+    expect(harness.mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({
+      accountToken: MEMBER_TOKEN, serverToken: MEMBER_SERVER_TOKEN, profileAccountId: MEMBER_PLEX_ID, profileName: 'Member', isServerOwner: false
+    }))
+    expect(plex.calls.some(call => call.path === '/accounts')).toBe(false)
+    expect(storage.size).toBe(0)
+  })
+
+  it('answers 400 when a non-admin asks for a profile', async () => {
+    seedToken(MEMBER_TOKEN)
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } })), 400, 'Only the Plex Home admin can choose a profile')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 for a profile that is not a non-guest member of the Home', async () => {
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: 342461106 } })), 400, `That Plex profile isn't in this Home`)
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: 1234 } })), 400, `That Plex profile isn't in this Home`)
+    expect(switchCalls()).toEqual([])
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 with the PIN copy for a wrong PIN, stores nothing and keeps the sign-in for a retry', async () => {
+    state.homeUsers[1] = { ...state.homeUsers[1]!, protected: true, pin: '4321' }
+    const error = await connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID, profilePin: '1111' } })).then(() => null, (thrown: unknown) => thrown as Error)
+    expect(error).toMatchObject({ statusCode: 400, message: `That PIN isn't right for Anese` })
+    expect(JSON.stringify(error)).not.toContain('1111')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+    expect(harness.mocks.updateSet).not.toHaveBeenCalled()
+    expect(storage.size).toBe(1)
+
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insert: [[{ id: 7 }]] })
+    await connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID, profilePin: '4321' } }))
+    expect(harness.mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({ accountToken: ANESE_TOKEN }))
+  })
+
+  it('answers 502, not the PIN copy, when plex.tv fails the switch with a 5xx', async () => {
+    state.switchStatus = 500
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } })), 502, 'Plex could not be reached')
+    expect(switchCalls()).toHaveLength(1)
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 "Sign-in expired" when plex.tv rejects the admin token for the Home calls', async () => {
+    state.profiles['revoked-admin-token'] = { user: state.user, resources: state.resources }
+    seedToken('revoked-admin-token')
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } })), 400, 'Sign-in expired, sign in with Plex again')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it.each(['/api/v2/user', '/api/v2/resources'])('answers 400 "Sign-in expired" when plex.tv rejects the profile token on %s after the switch', async (path) => {
+    state.rejectProfileTokenOn = [path]
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } })), 400, 'Sign-in expired, sign in with Plex again')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 "Sign-in expired" when plex.tv rejects the stored token on the user lookup without a profile switch', async () => {
+    seedToken('revoked-token')
+    await rejectsWith(connectPost(event({ body })), 400, 'Sign-in expired, sign in with Plex again')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it('answers 400 "Sign-in expired" when plex.tv rejects the stored token on the server list without a profile switch', async () => {
+    state.profiles['listing-rejected-token'] = { user: state.user, resources: state.resources }
+    state.rejectProfileTokenOn = ['/api/v2/resources']
+    seedToken('listing-rejected-token')
+    await rejectsWith(connectPost(event({ body })), 400, 'Sign-in expired, sign in with Plex again')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it.each(['/api/v2/user', '/api/v2/resources'])('answers 502 when plex.tv fails with a 5xx on %s without a profile switch', async (path) => {
+    state.failWith500On = [path]
+    await rejectsWith(connectPost(event({ body })), 502, 'Plex could not be reached')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+  })
+
+  it('does not forward a profilePin for a profile without a PIN', async () => {
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insert: [[{ id: 7 }]] })
+    await connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID, profilePin: '4321' } }))
+    expect(plex.rawUrls.filter(url => url.includes('/switch'))).toEqual([`/api/home/users/${ANESE_PLEX_ID}/switch`])
+  })
+
+  it('answers 409 when a concurrent connect wins the unique (server, profile) index at insert', async () => {
+    harness.givenDb({
+      select: [[], [], [{ latest: null }]],
+      insertError: Object.assign(new Error('failed query'), { cause: { code: '23505', constraint: 'plex_connections_server_profile_unique' } })
+    })
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } })), 409, 'That Plex profile is already connected to another watchd account')
+    expect(registry.startFor).not.toHaveBeenCalled()
+    expect(storage.size).toBe(1)
+  })
+
+  it('rethrows an insert failure that is not the (server, profile) unique violation', async () => {
+    harness.givenDb({ select: [[], [], [{ latest: null }]], insertError: Object.assign(new Error('boom'), { cause: { code: '23505', constraint: 'plex_connections_user_unique' } }) })
+    await expect(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } }))).rejects.toThrow('boom')
+  })
+
+  it('answers 400 when the profile\'s own resources lack the chosen server', async () => {
+    state.profiles[ANESE_TOKEN] = { ...state.profiles[ANESE_TOKEN]!, resources: [] }
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } })), 400, `Anese can't access that server`)
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+    expect(harness.mocks.updateSet).not.toHaveBeenCalled()
+  })
+
+  it('answers 409 when the profile is already connected to another watchd account, changing nothing', async () => {
+    harness.givenDb({ select: [[{ id: 9 }]] })
+    await rejectsWith(connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } })), 409, 'That Plex profile is already connected to another watchd account')
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+    expect(harness.mocks.updateSet).not.toHaveBeenCalled()
+    expect(harness.mocks.deleteWhere).not.toHaveBeenCalled()
+    expect(registry.startFor).not.toHaveBeenCalled()
+    expect(storage.size).toBe(1)
+  })
+
+  it('replaces the connection when the same server is re-signed-in as a different profile, starting a new cursor', async () => {
+    harness.givenDb({
+      select: [[], [connectionRow({ historyCursor: 1_700_000_000 })], [{ latest: new Date('2026-03-01T00:00:00Z') }], []],
+      insert: [[{ id: 6 }]]
+    })
+    await connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } }))
+    expect(harness.mocks.updateSet).toHaveBeenCalledWith({ deletedAt: null })
+    expect(harness.mocks.updateSet).toHaveBeenCalledTimes(1)
+    expect(harness.mocks.deleteWhere).toHaveBeenCalledTimes(1)
+    expect(harness.mocks.updateSet.mock.invocationCallOrder[0]).toBeLessThan(harness.mocks.deleteWhere.mock.invocationCallOrder[0]!)
+    expect(harness.mocks.deleteWhere.mock.invocationCallOrder[0]).toBeLessThan(harness.mocks.insertValues.mock.invocationCallOrder[0]!)
+    expect(harness.mocks.insertValues).toHaveBeenCalledWith(expect.objectContaining({
+      profileAccountId: ANESE_PLEX_ID, isServerOwner: false, historyCursor: Date.UTC(2026, 2, 1) / 1000
+    }))
+  })
+
+  it('updates in place when the same profile re-signs-in to the same server', async () => {
+    harness.givenDb({ select: [[], [connectionRow({ profileAccountId: ANESE_PLEX_ID, profileName: 'Anese', isServerOwner: false, accountToken: 'old', serverToken: 'old' })]] })
+    await connectPost(event({ body: { ...body, profileId: ANESE_PLEX_ID } }))
+    expect(harness.mocks.updateSet).toHaveBeenCalledWith(expect.objectContaining({
+      accountToken: ANESE_TOKEN, serverToken: ANESE_SERVER_TOKEN, profileAccountId: ANESE_PLEX_ID, isServerOwner: false, tokenInvalid: false
+    }))
+    expect(JSON.stringify(harness.mocks.updateSet.mock.calls)).not.toContain(ACCOUNT_TOKEN)
+    expect(harness.mocks.insertValues).not.toHaveBeenCalled()
+    expect(harness.mocks.deleteWhere).not.toHaveBeenCalled()
   })
 })
 
@@ -304,6 +548,7 @@ describe('plex routes: status', () => {
     expect(result).toEqual({
       connected: true,
       serverName: 'Home',
+      profileName: 'synthetic-owner',
       mode: 'on',
       listener: { state: 'connected', since: 123 },
       lastPlayAt: null,

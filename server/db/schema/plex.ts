@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, text, timestamp, unique, varchar } from 'drizzle-orm/pg-core'
+import { boolean, integer, jsonb, text, timestamp, unique, uniqueIndex, varchar } from 'drizzle-orm/pg-core'
 import { appSchema, commonColumns } from '../shared'
 import { titles } from './library'
 import { users } from './users'
@@ -25,16 +25,20 @@ export const plexConnections = appSchema.table(
     serverName: varchar('server_name', { length: 255 }).notNull(),
     serverUrl: text('server_url').notNull(),
     serverUrlOverride: text('server_url_override'),
-    ownerAccountId: integer('owner_account_id').notNull(),
-    plexUsername: varchar('plex_username', { length: 255 }).notNull(),
+    profileAccountId: integer('profile_account_id').notNull(),
+    profileName: varchar('profile_name', { length: 255 }).notNull(),
     sectionIds: jsonb('section_ids').$type<string[]>().notNull().default([]),
     historyCursor: integer('history_cursor'),
     lastScanAt: timestamp('last_scan_at', { withTimezone: true }),
     lastPlayAt: timestamp('last_play_at', { withTimezone: true }),
     lastReport: jsonb('last_report').$type<PlexReport>(),
+    isServerOwner: boolean('is_server_owner').notNull().default(true),
     tokenInvalid: boolean('token_invalid').notNull().default(false)
   },
-  table => [unique('plex_connections_user_unique').on(table.userId)]
+  table => [
+    unique('plex_connections_user_unique').on(table.userId),
+    uniqueIndex('plex_connections_server_profile_unique').on(table.serverMachineId, table.profileAccountId)
+  ]
 )
 
 export const plexItems = appSchema.table(

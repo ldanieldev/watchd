@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
   return {
     connected: true as const,
     serverName: connection.serverName,
+    profileName: connection.profileName,
     mode,
     listener: listenerRegistry.statusFor(user.id) ?? null,
     lastPlayAt: connection.lastPlayAt?.toISOString() ?? null,

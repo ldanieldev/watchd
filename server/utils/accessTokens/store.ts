@@ -1,9 +1,8 @@
 import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm'
 import { accessTokens, users } from '~~/server/db/schema'
 import type { AccessTokenSummary } from '~~/shared/types/accessTokens'
+import { isUniqueViolation } from '~~/server/utils/uniqueViolation'
 import { generateAccessToken, hashAccessToken } from './token'
-
-const PG_UNIQUE_VIOLATION = '23505'
 
 export class DuplicateAccessTokenNameError extends Error {
   constructor() {
@@ -35,11 +34,7 @@ export async function createAccessToken(userId: number, name: string): Promise<A
     const [row] = await db.insert(accessTokens).values({ userId, name, tokenHash: hash, prefix }).returning(summaryColumns)
     return { ...toSummary(row!), token }
   } catch (error) {
-    // Drizzle wraps the driver error, so read the Postgres code from error.cause before falling back to the error itself.
-    const driverError = (error as { cause?: { code?: string } }).cause ?? error
-    if ((driverError as { code?: string }).code === PG_UNIQUE_VIOLATION) {
-      throw new DuplicateAccessTokenNameError()
-    }
+    if (isUniqueViolation(error)) throw new DuplicateAccessTokenNameError()
     throw error
   }
 }

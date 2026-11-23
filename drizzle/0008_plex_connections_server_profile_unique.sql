@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "plex_connections_server_profile_unique" ON "app"."plex_connections" USING btree ("server_machine_id","profile_account_id");

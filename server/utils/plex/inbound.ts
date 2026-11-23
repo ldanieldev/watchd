@@ -45,7 +45,7 @@ export interface InboundStore {
   saveProgress(connectionId: number, update: { historyCursor: number | null, lastPlayAt?: Date }): Promise<void>
 }
 
-type InboundConnection = Pick<typeof plexConnections.$inferSelect, 'id' | 'userId' | 'ownerAccountId' | 'serverMachineId' | 'sectionIds' | 'historyCursor' | 'lastPlayAt'>
+type InboundConnection = Pick<typeof plexConnections.$inferSelect, 'id' | 'userId' | 'profileAccountId' | 'serverMachineId' | 'sectionIds' | 'historyCursor' | 'lastPlayAt'>
 
 export const drizzleInboundStore: InboundStore = {
   async mappedItems(connectionId, ratingKeys) {
@@ -168,7 +168,7 @@ export async function pullHistory(
   const readFrom = since ?? connection.historyCursor ?? undefined
   // Plex's viewedAt> is strict, so read from a second earlier and skip stored history ids rather than lose entries sharing the cursor's second.
   const fetched = await server.history({
-    accountId: connection.ownerAccountId,
+    accountId: connection.profileAccountId,
     sectionIds: connection.sectionIds.map(Number),
     viewedAfter: readFrom === undefined || readFrom <= 0 ? undefined : readFrom - 1
   })

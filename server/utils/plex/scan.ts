@@ -51,7 +51,7 @@ export interface PlexScanSummary {
   errors: number
 }
 
-type ScanConnection = Pick<PlexConnectionRow, 'id' | 'userId' | 'ownerAccountId' | 'serverMachineId' | 'sectionIds' | 'historyCursor' | 'lastPlayAt' | 'lastScanAt'>
+type ScanConnection = Pick<PlexConnectionRow, 'id' | 'userId' | 'profileAccountId' | 'serverMachineId' | 'sectionIds' | 'historyCursor' | 'lastPlayAt' | 'lastScanAt'>
 
 const matchesPlayKey = (userId: number, key: PlayKey) => and(
   eq(watches.userId, userId),
